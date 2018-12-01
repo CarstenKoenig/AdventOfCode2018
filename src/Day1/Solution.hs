@@ -3,9 +3,10 @@ module Day1.Solution where
 import           Data.IntSet (IntSet)
 import qualified Data.IntSet as Set
 
+
 run :: IO ()
 run = do
-  putStrLn "day1"
+  putStrLn "DAY 1"
   myInput <- input
   putStrLn $ "star 1: " ++ show (solution1 myInput)
   putStrLn $ "star 2: " ++ show (solution2 myInput)
@@ -15,6 +16,7 @@ type Input = [Int]
 type Output = Int
 
 
+-- | input is either `+[int]` or `-[int]`
 input :: IO Input
 input = map parseNr . lines <$> readFile "./src/Day1/input.txt"
   where
@@ -22,15 +24,20 @@ input = map parseNr . lines <$> readFile "./src/Day1/input.txt"
     parseNr ('+':n) = read n
 
 
+
+-- | just sum up the input
 solution1 :: Input -> Output
 solution1 = sum
 
+
+-- | repeat the input sequence, adding it to generate iterative
+--   states and then search for the first such sum seen twice
 solution2 :: Input -> Output
-solution2 numbers = addToDuplicate Set.empty $ states $ cycle numbers
+solution2 = insertTillDuplicate Set.empty . states . cycle
   where
     states = scanl (+) 0
-    addToDuplicate seen (n:ns)
+    insertTillDuplicate seen (n:ns)
       | isDuplicate seen n = n
-      | otherwise          = addToDuplicate (Set.insert n seen) ns
+      | otherwise          = insertTillDuplicate (Set.insert n seen) ns
     isDuplicate seen n =
       Set.member n seen
