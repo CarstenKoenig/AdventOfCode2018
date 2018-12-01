@@ -4,4 +4,4 @@ these are my solution to this years [Advent of Code](https://adventofcode.com/20
 
 ## Solutions
 
-- [Day 1](./src/Day1/readme.md)
+- [Day 1](./src/Day1#readme.md)
