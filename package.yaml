@@ -21,3 +21,6 @@ executables:
   AoC2018:
     source-dirs:      src
     main:             Main.hs
+    ghc-options:
+      -O
+      -threaded
