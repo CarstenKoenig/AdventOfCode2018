@@ -33,8 +33,8 @@ checkSum boxId = score (groupId boxId)
   where
     score =
       (scoreWith containsTwoLetters &&& scoreWith containsThreeLetters)
-    scoreWith f =
-      bool 0 1 . f
+    scoreWith =
+      (bool 0 1 .)
 
 
 type Grouping = [(Char,Int)]
