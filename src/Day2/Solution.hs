@@ -22,6 +22,8 @@ input :: IO [BoxId]
 input = lines <$> readFile "./src/Day2/input.txt"
 
 
+----------------------------------------------------------------------
+
 part1 :: [BoxId] -> Int
 part1 = uncurry (*) . bimap getSum getSum . mconcat . map checkSum
 
@@ -56,7 +58,8 @@ part2 = fromJust . findMatches
 
 findMatches :: [BoxId] -> Maybe BoxId
 findMatches [] = Nothing
-findMatches (a:rest) = getFirst (mconcat $ (First . isMatch a <$> rest)) <> findMatches rest
+findMatches (a:rest) =
+  getFirst (mconcat $ (First . isMatch a <$> rest)) <> findMatches rest
 
 
 isMatch :: BoxId -> BoxId -> Maybe BoxId
