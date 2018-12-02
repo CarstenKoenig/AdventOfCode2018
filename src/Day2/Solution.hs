@@ -1,6 +1,6 @@
 module Day2.Solution where
 
-import Data.Bifunctor (bimap)
+import Control.Arrow ((&&&))
 import Data.Bool (bool)
 import Data.List (sort, sortBy, group)
 import Data.Maybe (fromJust)
@@ -25,21 +25,24 @@ input = lines <$> readFile "./src/Day2/input.txt"
 ----------------------------------------------------------------------
 
 part1 :: [BoxId] -> Int
-part1 = uncurry (*) . bimap getSum getSum . mconcat . map checkSum
+part1 = getSum . uncurry (*) . foldMap checkSum
 
 
 checkSum :: BoxId -> (Sum Int, Sum Int)
 checkSum boxId = score (groupId boxId)
   where
-    score grp =
-      bimap (bool 0 1) (bool 0 1) (containsTwoLetters grp, containsThreeLetters grp)
+    score =
+      (scoreWith containsTwoLetters &&& scoreWith containsThreeLetters)
+    scoreWith f =
+      bool 0 1 . f
 
 
 type Grouping = [(Char,Int)]
 
 
 groupId :: BoxId -> Grouping
-groupId = sortBy (comparing snd) . map (\gr@(c:_) -> (c, length gr)) . group . sort
+groupId =
+  sortBy (comparing snd) . map (\gr@(c:_) -> (c, length gr)) . group . sort
 
 
 containsTwoLetters :: Grouping -> Bool
@@ -59,7 +62,7 @@ part2 = fromJust . findMatches
 findMatches :: [BoxId] -> Maybe BoxId
 findMatches [] = Nothing
 findMatches (a:rest) =
-  getFirst (mconcat $ (First . isMatch a <$> rest)) <> findMatches rest
+  getFirst (foldMap (First . isMatch a) rest) <> findMatches rest
 
 
 isMatch :: BoxId -> BoxId -> Maybe BoxId
