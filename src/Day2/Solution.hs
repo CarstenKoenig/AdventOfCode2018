@@ -3,7 +3,7 @@ module Day2.Solution where
 import Control.Arrow ((&&&))
 import Data.Bool (bool)
 import Data.List (sort, sortBy, group)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, catMaybes)
 import Data.Monoid (Sum(..), First(..))
 import Data.Ord (comparing)
 
@@ -73,8 +73,5 @@ isMatch box1 box2
 
 
 common :: BoxId -> BoxId -> BoxId
-common [] _ = ""
-common _ [] = ""
-common (a:as) (b:bs)
-  | a == b    = a : common as bs
-  | otherwise = common as bs
+common xs ys =
+  catMaybes $ zipWith (\x y -> if x == y then Just x else Nothing) xs ys
