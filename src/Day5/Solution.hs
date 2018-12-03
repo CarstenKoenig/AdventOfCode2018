@@ -1,4 +1,4 @@
-module Day4.Solution where
+module Day5.Solution where
 
 import           Data.Char (isDigit)
 import           Text.Parsec
@@ -6,11 +6,11 @@ import           Text.Parsec
 
 run :: IO ()
 run = do
-  putStrLn "DAY 4"
+  putStrLn "DAY 5"
 
 
 inputTxt :: IO String
-inputTxt = readFile "./src/Day4/input.txt"
+inputTxt = readFile "./src/Day5/input.txt"
 
 
 type Input = ()

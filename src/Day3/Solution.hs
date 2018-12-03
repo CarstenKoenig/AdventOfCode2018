@@ -1,10 +1,10 @@
 module Day3.Solution where
 
-import Text.Parsec
-import Text.Parsec.Char
-import Data.Char (isDigit)
+import           Data.Char (isDigit)
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Map.Strict (Map)
+import           Text.Parsec
+
 
 run :: IO ()
 run = do
@@ -19,14 +19,13 @@ inputTxt :: IO [Claim]
 inputTxt = map parseLine . lines <$> readFile "./src/Day3/input.txt"
 
 
-
 part1 :: Fabric -> Int
 part1 = overlappArea
 
 
 part2 :: Fabric -> [Claim] -> Int
-part2 fabric claims =
-  claimId . head $ filter (notOverlapping fabric) claims
+part2 fab claims =
+  claimId . head $ filter (notOverlapping fab) claims
 
 type Coord = (Int, Int)
 
