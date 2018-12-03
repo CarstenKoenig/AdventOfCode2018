@@ -9,23 +9,39 @@ import Data.Map.Strict (Map)
 run :: IO ()
 run = do
   putStrLn "DAY 3"
-  inp <- inputTxt
-  putStrLn $ "part 1: " ++ show (part1 inp)
+  claims <- inputTxt
+  let fab = fabric claims
+  putStrLn $ "part 1: " ++ show (part1 fab)
+  putStrLn $ "part 2: " ++ show (part2 fab claims)
 
 
 inputTxt :: IO [Claim]
 inputTxt = map parseLine . lines <$> readFile "./src/Day3/input.txt"
 
 
-part1 :: [Claim] -> Int
-part1 = overlappArea . foldr mark fabric
+
+part1 :: Fabric -> Int
+part1 = overlappArea
+
+
+part2 :: Fabric -> [Claim] -> Int
+part2 fabric claims =
+  claimId . head $ filter (notOverlapping fabric) claims
 
 type Coord = (Int, Int)
 
 type Fabric = Map Coord Int
 
-fabric :: Fabric
-fabric = Map.empty
+
+fabric :: [Claim] -> Fabric
+fabric = foldr mark Map.empty
+
+
+notOverlapping :: Fabric -> Claim -> Bool
+notOverlapping fab claim =
+  all onceInClaim $ points claim
+  where
+    onceInClaim pt = Map.lookup pt fab == Just 1
 
 
 overlappArea :: Fabric -> Int
@@ -33,9 +49,10 @@ overlappArea = length . Map.toList . Map.filter (> 1)
 
 
 mark :: Claim -> Fabric -> Fabric
-mark claim = flip (foldr markPoint) points
-  where
-    points = [(left claim + x, top claim + y) | x <- [0..width claim - 1], y <- [0..height claim - 1] ]
+mark claim = flip (foldr markPoint) (points claim)
+
+points :: Claim -> [Coord]
+points claim = [(left claim + x, top claim + y) | x <- [0..width claim - 1], y <- [0..height claim - 1] ]
 
 
 markPoint :: Coord -> Fabric -> Fabric
