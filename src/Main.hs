@@ -4,6 +4,7 @@ import qualified Day1.Solution as Day1
 import qualified Day2.Solution as Day2
 import qualified Day3.Solution as Day3
 import qualified Day4.Solution as Day4
+import qualified Day5.Solution as Day5
 import           System.Console.ANSI (clearScreen)
 import           System.IO (hSetBuffering, BufferMode(..), stdout)
 import           Text.Read (readMaybe)
@@ -14,6 +15,7 @@ days =
   , (2, Day2.run)
   , (3, Day3.run)
   , (4, Day4.run)
+  , (5, Day5.run)
   ]
 
 
