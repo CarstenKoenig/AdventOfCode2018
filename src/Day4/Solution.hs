@@ -1,5 +1,6 @@
 module Day4.Solution where
 
+import           Control.Arrow ((&&&))
 import           Data.Char (isDigit)
 import           Data.List (sort, nub, maximumBy)
 import           Data.Map.Strict (Map)
@@ -9,6 +10,8 @@ import           Data.Ord (comparing)
 import           Data.Time.Calendar (fromGregorian)
 import           Data.Time.Clock (UTCTime(..), secondsToDiffTime)
 import           Text.Parsec
+import           Utils.Counter (Counter)
+import qualified Utils.Counter as C
 
 
 type Input = [Event]
@@ -32,8 +35,8 @@ data Action
   deriving (Show, Ord, Eq)
 
 
-data Sleeps
-  = Sleeps
+data Nap
+  = Nap
     { sleepingGuardId :: GuardId
     , asleepFor :: Minute
     , fallsAsleepAt :: Minute
@@ -51,20 +54,20 @@ run = do
   txt <- inputTxt
   let inp = parseInput txt
   let guards = guardIds inp
-  let times = sleepTimes inp
+  let naps = aggregateNaps inp
 
-  putStrLn $ "part 1: " ++ show (part1 times)
-  putStrLn $ "part 2: " ++ show (part2 guards times)
-
-
-part1 :: [Sleeps] -> Int
-part1 times =
-  let bestGuard = sleepsTheMost times
-      bestMin = bestMinute bestGuard times
-  in bestGuard * bestMin
+  putStrLn $ "part 1: " ++ show (part1 naps)
+  putStrLn $ "part 2: " ++ show (part2 guards naps)
 
 
-part2 :: [GuardId] -> [Sleeps] -> Int
+part1 :: [Nap] -> Int
+part1 naps =
+  let bestGuard = laziestGuard naps
+      favMinute = guardsFavoriteNapMinute bestGuard naps
+  in bestGuard * favMinute
+
+
+part2 :: [GuardId] -> [Nap] -> Int
 part2 guards times =
   let (bestGuard, bestMin) = maximumBy (comparing $ \(gId, m) -> timesSlept times gId m) [ (gId, m) | gId <- guards, m <- [0..59] ]
   in bestGuard * bestMin
@@ -81,47 +84,48 @@ guardIds = nub . mapMaybe getGuardId
 
 
 -- | which guard spend the most time sleeping
-sleepsTheMost :: [Sleeps] -> GuardId
-sleepsTheMost =
-  fst . maximumBy (comparing snd) . Map.toList . totalSleepTimes
+laziestGuard :: [Nap] -> GuardId
+laziestGuard =
+  fst . C.maximum . totalNapSpanStats
 
 
 -- | counts the times a certain guard slept during a certain minute
-timesSlept :: [Sleeps] -> GuardId -> Minute -> Int
+timesSlept :: [Nap] -> GuardId -> Minute -> Int
 timesSlept times gId minute =
-  length $ filter (\(Sleeps gId' _ f t) -> gId == gId' && minute >= f && minute < t) times
+  length $ filter (\(Nap gId' _ f t) -> gId == gId' && minute >= f && minute < t) times
 
 
 -- | looks for minute when the given guard slept the most
-bestMinute :: GuardId -> [Sleeps] -> Int
-bestMinute gId =
-  fst . maximumBy (comparing snd) . Map.toList . sleepMins gId
+guardsFavoriteNapMinute :: GuardId -> [Nap] -> Int
+guardsFavoriteNapMinute gId =
+  fst . C.maximum . guardMinuteStats gId
 
 
 -- | give a map of guards to their total time asleep (in minutes)
-totalSleepTimes :: [Sleeps] -> Map GuardId Int
-totalSleepTimes =
-  foldr (\(Sleeps gId mins _ _) -> Map.insertWith (+) gId mins) Map.empty
+totalNapSpanStats :: [Nap] -> Counter GuardId Minute
+totalNapSpanStats =
+  C.fromList . map (sleepingGuardId &&& asleepFor)
 
 
 -- | give a map of Minute to days asleep at that minute for a certain guard
-sleepMins :: GuardId -> [Sleeps] -> Map Minute Int
-sleepMins gId =
-  foldr (\(Sleeps gId' _ f t) m ->
-           if gId' == gId then
-             foldr (\minute -> Map.insertWith (+) minute 1) m [f..t-1]
-           else
-             m) Map.empty
+guardMinuteStats :: GuardId -> [Nap] -> Counter Minute Int
+guardMinuteStats gId =
+  C.fromList . concatMap guardSleeps
+  where guardSleeps (Nap gId' _ f t) =
+          if gId' == gId then
+             [ (minute, 1) | minute <- [f..t-1] ]
+          else
+            []
 
 
 -- | aggregates the input into a list of records indicating who slept how long and at which times
-sleepTimes :: Input -> [Sleeps]
-sleepTimes = go Nothing Nothing
+aggregateNaps :: Input -> [Nap]
+aggregateNaps = go Nothing Nothing
   where
     go _ _ [] = []
     go _ _ (Event _ _ (BeginShift gId) : rest) = go (Just gId) Nothing rest
     go curGuardId _ (Event _ m FallAsleep : rest) = go curGuardId (Just m) rest 
-    go (Just curGuardId) (Just fellAsleepAt) (Event _ m WakeUp : rest) = Sleeps curGuardId (m - fellAsleepAt) fellAsleepAt m : go (Just curGuardId) Nothing rest
+    go (Just curGuardId) (Just fellAsleepAt) (Event _ m WakeUp : rest) = Nap curGuardId (m - fellAsleepAt) fellAsleepAt m : go (Just curGuardId) Nothing rest
     go Nothing _ (Event t _ WakeUp : _) = error $ "don't know who woke up at " ++ show t
     go (Just gId) Nothing (Event t _ WakeUp : _) = error $ "don't know when " ++ show gId ++ " fell at sleep but woke up at " ++ show t
 
