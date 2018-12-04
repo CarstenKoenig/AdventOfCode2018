@@ -11,6 +11,40 @@ import           Data.Time.Clock (UTCTime(..), secondsToDiffTime)
 import           Text.Parsec
 
 
+type Input = [Event]
+type Minute = Int
+type GuardId = Int
+
+
+data Event =
+  Event
+  { eventTime   :: UTCTime
+  , eventMinute :: Minute
+  , eventAction :: Action
+  }
+  deriving (Show, Eq, Ord)
+
+
+data Action
+  = BeginShift GuardId
+  | FallAsleep
+  | WakeUp
+  deriving (Show, Ord, Eq)
+
+
+data Sleeps
+  = Sleeps
+    { sleepingGuardId :: GuardId
+    , asleepFor :: Minute
+    , fallsAsleepAt :: Minute
+    , wakesUpAt :: Minute
+    }
+  deriving Show
+
+
+----------------------------------------------------------------------
+-- main
+
 run :: IO ()
 run = do
   putStrLn "DAY 4"
@@ -36,33 +70,42 @@ part2 guards times =
   in bestGuard * bestMin
 
 
+----------------------------------------------------------------------
+-- algorithm
+
+-- | all different Guard-IDs from the input
 guardIds :: Input -> [GuardId]
 guardIds = nub . mapMaybe getGuardId
   where getGuardId (Event _ _ (BeginShift gId)) = Just gId
         getGuardId _ = Nothing
 
 
+-- | which guard spend the most time sleeping
 sleepsTheMost :: [Sleeps] -> GuardId
 sleepsTheMost =
   fst . maximumBy (comparing snd) . Map.toList . totalSleepTimes
 
 
-timesSlept :: [Sleeps] -> GuardId -> Int -> Int
+-- | counts the times a certain guard slept during a certain minute
+timesSlept :: [Sleeps] -> GuardId -> Minute -> Int
 timesSlept times gId minute =
   length $ filter (\(Sleeps gId' _ f t) -> gId == gId' && minute >= f && minute < t) times
 
 
+-- | looks for minute when the given guard slept the most
 bestMinute :: GuardId -> [Sleeps] -> Int
 bestMinute gId =
   fst . maximumBy (comparing snd) . Map.toList . sleepMins gId
 
 
+-- | give a map of guards to their total time asleep (in minutes)
 totalSleepTimes :: [Sleeps] -> Map GuardId Int
 totalSleepTimes =
   foldr (\(Sleeps gId mins _ _) -> Map.insertWith (+) gId mins) Map.empty
 
 
-sleepMins :: GuardId -> [Sleeps] -> Map Int Int
+-- | give a map of Minute to days asleep at that minute for a certain guard
+sleepMins :: GuardId -> [Sleeps] -> Map Minute Int
 sleepMins gId =
   foldr (\(Sleeps gId' _ f t) m ->
            if gId' == gId then
@@ -71,6 +114,7 @@ sleepMins gId =
              m) Map.empty
 
 
+-- | aggregates the input into a list of records indicating who slept how long and at which times
 sleepTimes :: Input -> [Sleeps]
 sleepTimes = go Nothing Nothing
   where
@@ -82,10 +126,6 @@ sleepTimes = go Nothing Nothing
     go (Just gId) Nothing (Event t _ WakeUp : _) = error $ "don't know when " ++ show gId ++ " fell at sleep but woke up at " ++ show t
 
 
-data Sleeps
-  = Sleeps GuardId Int Int Int
-  deriving Show
-
 ----------------------------------------------------------------------
 -- File input
 
@@ -95,27 +135,6 @@ inputTxt = readFile "./src/Day4/input.txt"
 
 ----------------------------------------------------------------------
 -- Parsing
-
-type Input = [Event]
-
-
-type GuardId = Int
-
-
-data Event =
-  Event
-  { eventTime :: UTCTime
-  , eventMinute :: Int
-  , eventAction :: Action
-  }
-  deriving (Show, Eq, Ord)
-
-data Action
-  = BeginShift GuardId
-  | FallAsleep
-  | WakeUp
-  deriving (Show, Ord, Eq)
-
 
 parseInput :: String -> Input
 parseInput = sort . map parseLine . lines
