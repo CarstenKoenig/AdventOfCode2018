@@ -16,24 +16,24 @@ run = do
   putStrLn "DAY 4"
   txt <- inputTxt
   let inp = parseInput txt
+  let guards = guardIds inp
   let times = sleepTimes inp
 
-  print times
-
-  putStrLn $ "part 1: " ++ show (part1 inp)
-  putStrLn $ "part 2: " ++ show (part2 inp)
+  putStrLn $ "part 1: " ++ show (part1 times)
+  putStrLn $ "part 2: " ++ show (part2 guards times)
 
 
-part1 :: Input -> Int
-part1 inp =
-  let times = sleepTimes inp
-      bestGuard = sleepsTheMost times
+part1 :: [Sleeps] -> Int
+part1 times =
+  let bestGuard = sleepsTheMost times
       bestMin = bestMinute bestGuard times
   in bestGuard * bestMin
 
 
-part2 :: Input -> String
-part2 = const "???"
+part2 :: [GuardId] -> [Sleeps] -> Int
+part2 guards times =
+  let (bestGuard, bestMin) = maximumBy (comparing $ \(gId, m) -> timesSlept times gId m) [ (gId, m) | gId <- guards, m <- [0..59] ]
+  in bestGuard * bestMin
 
 
 guardIds :: Input -> [GuardId]
@@ -45,6 +45,11 @@ guardIds = nub . mapMaybe getGuardId
 sleepsTheMost :: [Sleeps] -> GuardId
 sleepsTheMost =
   fst . maximumBy (comparing snd) . Map.toList . totalSleepTimes
+
+
+timesSlept :: [Sleeps] -> GuardId -> Int -> Int
+timesSlept times gId minute =
+  length $ filter (\(Sleeps gId' _ f t) -> gId == gId' && minute >= f && minute < t) times
 
 
 bestMinute :: GuardId -> [Sleeps] -> Int
@@ -118,8 +123,6 @@ parseInput = sort . map parseLine . lines
 
 type Parser a = Parsec String () a
 
-
-testLine = "[1518-05-21 23:58] Guard #2879 begins shift"
 
 parseLine :: String -> Event
 parseLine = either (error . show) id . parse eventP "line"
