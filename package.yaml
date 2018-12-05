@@ -30,3 +30,4 @@ executables:
     ghc-options:
       -O2
       -threaded
+      -Wall
