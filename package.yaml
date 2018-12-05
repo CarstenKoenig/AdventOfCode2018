@@ -19,10 +19,14 @@ dependencies:
   - time
   - parsec 
 
+default-extensions:
+  - OverloadedStrings
+  - BangPatterns
+
 executables:
   AoC2018:
     source-dirs:      src
     main:             Main.hs
     ghc-options:
-      -O
+      -O2
       -threaded
