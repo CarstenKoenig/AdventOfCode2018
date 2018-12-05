@@ -1,8 +1,8 @@
 module Day5.Solution where
 
-import           Data.Char (toLower, isLetter)
-import           Data.List (minimumBy)
-import           Data.Ord (comparing)
+import Data.Char (toLower, isLetter)
+import Data.List (minimumBy, foldl')
+import Data.Ord (comparing)
 
 
 type Polymer = String
@@ -35,11 +35,11 @@ improve p = react . filter (\c -> toLower c /= p)
 
 -- | reduce a Polymer to it's normal form
 react :: Polymer -> Polymer
-react = foldr reduce ""
+react = reverse . foldl' reduce ""
   where
-    reduce a (b:bs)
+    reduce (b:bs) a
       | canReact a b = bs
-    reduce a bs      = a : bs
+    reduce bs a      = a : bs
     canReact a b     = a /= b && toLower a == toLower b
 
 
@@ -48,14 +48,3 @@ react = foldr reduce ""
 
 inputTxt :: IO Polymer
 inputTxt = filter isLetter <$> readFile "./src/Day5/input.txt"
-
-
-----------------------------------------------------------------------
--- helpers
-
--- | finds the fix point of the given function starting at
--- a point
-fix :: Eq a => (a -> a) -> a -> a
-fix f !x =
-  let x' = f x
-  in if x' == x then x else fix f x'
