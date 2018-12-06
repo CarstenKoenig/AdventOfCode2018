@@ -25,6 +25,9 @@ run = do
   let maxArea = findLargestArea grd
   putStrLn $ "part 1: " ++ show maxArea
 
+  let part2 = coordsNearAll bound inp
+  putStrLn $ "part 2: " ++ show part2
+
 
 part1 :: Input -> Int
 part1 inp =
@@ -32,6 +35,17 @@ part1 inp =
       pts = points inp
       grd = grid bound pts
   in  findLargestArea grd
+
+
+coordsNearAll :: (Coord, Coord) -> [Coord] -> Int
+coordsNearAll ((x0,y0), (x1,y1)) crds =
+  length . filter (nearAll crds) $ [ (x,y) | x <- [x0-50..x1+50], y <- [y0-50..y1+50]]
+
+
+nearAll :: [Coord] -> Coord -> Bool
+nearAll crds crd =
+  let distSum = sum . map (dist crd) $ crds
+  in distSum < 10000
 
 
 findLargestArea :: Map Coord PointNr -> Int
