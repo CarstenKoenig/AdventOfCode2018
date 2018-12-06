@@ -1,8 +1,12 @@
+{-# LANGUAGE TupleSections #-}
 module Day6.Solution where
 
 import           Data.Char (isDigit)
-import           Data.List (nub, sortOn)
-import           Data.Maybe (fromJust, isJust)
+import           Data.List (sortOn)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import           Data.Maybe (mapMaybe)
+import qualified Data.Set as Set
 import           Text.Parsec
 import qualified Utils.Counter as C
 
@@ -25,10 +29,10 @@ type Boundary = (Coord, Coord)
 
 
 -- | Grid for part 1
--- lists all coordinates that have a unique
+-- maps coords to their nearest point
 -- nearest point with this point, if it does not
 -- lie in an infinite area
-type Grid = [(Coord, PointNr)]
+type Grid = Map Coord PointNr
 
 
 run :: IO ()
@@ -53,7 +57,7 @@ part1 bound = findLargestArea . grid bound
 -- Part 2
 
 part2 :: Boundary -> [Point] -> Int
-part2 = coordsNearAll
+part2 = coordsNearAll 10
 
 
 ----------------------------------------------------------------------
@@ -61,9 +65,10 @@ part2 = coordsNearAll
 
 
 -- | just count all Coordinates that are @nearAll points
-coordsNearAll :: Boundary -> [Point] -> Int
-coordsNearAll ((x0,y0), (x1,y1)) crds =
-  length . filter (nearAll crds) $ [ (x,y) | x <- [x0-50..x1+50], y <- [y0-50..y1+50]]
+coordsNearAll :: Int -> Boundary -> [Point] -> Int
+coordsNearAll slag ((x0,y0), (x1,y1)) crds =
+  length . filter (nearAll crds) $
+  [ (x,y) | x <- [x0-slag..x1+slag], y <- [y0-slag..y1+slag]]
 
 
 -- | the puzzle says a coord is near all points if the
@@ -79,32 +84,25 @@ nearAll pts crd =
 -- point with the most associated coords
 findLargestArea :: Grid -> Int
 findLargestArea grd =
-  let cnt = C.fromList [ (n, 1) | (_, n) <- grd ]
+  let cnt = C.fromList [ (n, 1) | (_, n) <- Map.toList grd ]
   in snd $ C.maximum cnt
 
 
 -- | calculated a @Grid for the given points
--- for each coord in the boundary the nearest
--- point is located - will be excluded if the point is
--- the nearest to a border-point
+-- will remove any points from areas that touches
+-- the boundary
 grid :: Boundary -> [Point] -> Grid
 grid ((x0,y0), (x1,y1)) pts =
-  let nearBorder = nearestBorder ((x0,y0), (x1,y1)) pts
-  in [ (c, fromJust near) | x <- [x0..x1], y <- [y0..y1]
-                          , let c = (x,y)
-                          , let near = nearest pts c
-                          , isJust near
-                          , not (fromJust near `elem` nearBorder)
-                          ]
-
-
--- | returns all points that are the nearest to a border
--- point - because those will have an infinite area
--- associated
-nearestBorder :: Boundary -> [Point] -> [PointNr]
-nearestBorder ((x0,y0), (x1,y1)) pts =
-  nub [ nearest' pts c | c <- borderCoords ]
+  removeInfinitePoints $ makeGrid gridCoords
   where
+    makeGrid = Map.fromList . mapMaybe findNearest
+    removeInfinitePoints grd =
+      let borderPoints = Set.fromList . mapMaybe (`Map.lookup` grd) $ borderCoords
+      in Map.filter (not . (`Set.member` borderPoints)) grd
+    findNearest coord =
+      (coord,) <$> nearest pts coord
+    gridCoords =
+      [ (x,y) | x <- [x0..x1], y <- [y0..y1] ]
     borderCoords =
       [ (x0,y) | y <- [y0..y1] ]
       ++ [ (x1,y) | y <- [y0..y1] ]
@@ -121,13 +119,6 @@ nearest pts coord =
     (na, da) : (_, db) : _ | da < db -> Just na
     [(na, _)]                        -> Just na
     _                                -> Nothing
-
-
--- | finds one nearest point to the given coord
--- will be the first one with minimal distance
-nearest' :: [Point] -> Coord -> PointNr
-nearest' pts coord =
-  fst . head . sortOn snd $ [ (n, dist coord p) | (Point n p) <- pts ]
 
 
 -- | Manhatten-Distance
