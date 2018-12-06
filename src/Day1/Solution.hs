@@ -1,6 +1,5 @@
 module Day1.Solution where
 
-import           Data.IntSet (IntSet)
 import qualified Data.IntSet as Set
 
 
@@ -22,6 +21,7 @@ input = map parseNr . lines <$> readFile "./src/Day1/input.txt"
   where
     parseNr ('-':n) = negate $ read n
     parseNr ('+':n) = read n
+    parseNr _       = error "invalid input"
 
 
 
@@ -39,5 +39,6 @@ solution2 = insertTillDuplicate Set.empty . states . cycle
     insertTillDuplicate seen (n:ns)
       | isDuplicate seen n = n
       | otherwise          = insertTillDuplicate (Set.insert n seen) ns
+    insertTillDuplicate _ [] = error "counted to infinity and found nothing"
     isDuplicate seen n =
       Set.member n seen
