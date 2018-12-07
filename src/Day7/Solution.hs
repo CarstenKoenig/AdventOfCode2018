@@ -8,7 +8,8 @@ import           Text.Parsec
 import qualified Utils.Counter as C
 
 
-type Input = [Order]
+type Input = [Edge]
+
 
 run :: IO ()
 run = do
@@ -19,138 +20,177 @@ run = do
   putStrLn $ "part 2: " ++ show (part2 inp)
 
 
-time :: Char -> Int
-time c = ord c - ord 'A' + 61
+----------------------------------------------------------------------
+-- part 1
+
+part1 :: [Edge] -> String
+part1 = topoSort . toGraph
+
+----------------------------------------------------------------------
+-- poor mans Graph
+
+data Graph = Graph
+  { incomingCounter :: C.Counter Node Int
+  , edges :: [Edge]
+  } deriving Show
+
+type Edge = (Node, Node)
+
+type Node = Char
 
 
-type Workers = C.Counter Char Int
+-- | creates an @Graph from an list of edges
+-- counting incomming edges for each node
+toGraph :: [Edge] -> Graph
+toGraph eds =
+  let incomming = C.fromList $ concat [ [(f, 0), (t,1)] | (f,t) <- eds]
+  in Graph incomming eds
 
 
-data Part2 = Part2
-  { workers :: Workers
-  , numWorkers :: Int
-  , input   :: Input
-  , counters :: C.Counter Char Int
+-- | return the nodes in topological order
+topoSort :: Graph -> [Node]
+topoSort gr = do
+      c <- maybe [] pure $ nextNode gr
+      let gr' = removeNode c gr
+      c : topoSort gr'
+
+
+-- | removes a node from a graph and updates the
+-- incoming edge counters
+removeNode :: Char -> Graph -> Graph
+removeNode node gr =
+  let cnt' = C.remove node $ incomingCounter gr
+      cnt'' = foldl' (flip C.decr) cnt' $ map snd $ filter (\(f',_) -> f' == node) (edges gr)
+  in gr { incomingCounter = cnt'' }
+
+
+-- | the next node in topological order
+nextNode :: Graph -> Maybe Char
+nextNode = listToMaybe . degree0s
+
+
+-- | returns all nodes with no incomming edges
+-- sorted for alphabetic order of the node-names
+degree0s :: Graph -> [Node]
+degree0s =
+  map fst . sortBy (comparing fst) . filter (\ (_,n) -> n == 0) . C.asc . incomingCounter
+
+
+----------------------------------------------------------------------
+-- part 2
+
+part2 :: [Edge] -> Seconds
+part2 = execute 0 . initWorkState 5
+
+
+-- | time it takes to finish node
+time :: Node -> Seconds
+time node = ord node - ord 'A' + 61
+
+
+----------------------------------------------------------------------
+-- WorkState
+
+-- | keeps track of the workers and the graph of nodes to work on
+data WorkState = WorkState
+  { numWorkers :: Int
+  , workers :: Workers
+  , graph :: Graph
   } deriving Show
 
 
-initPart2 :: Int -> Input -> Part2
-initPart2 n inp =
-  let deg = degrees inp
-  in Part2 initWorkers n inp deg
+-- | inits the state for part 2
+initWorkState :: Int -> [Edge] -> WorkState
+initWorkState n = WorkState n initWorkers . toGraph
 
 
-part2 :: Input -> Int
-part2 = execute 0 . initPart2 5
-
-
-execute :: Int -> Part2 -> Int
-execute tm st
-  | not (null finishedJobs) =
-    let workers' = cleanFinishedWorkers (workers st)
-        counters' = foldl' (\cnt f -> updateIncoming (input st) f cnt) (counters st) finishedJobs
-    in execute tm $ st { workers = workers', counters = counters' }
+-- | progresses time till all work is done and returns the seconds taken
+execute :: Seconds -> WorkState -> Seconds
+execute timeSoFar curState@(WorkState maxWorkers curWorkers curGraph)
+  -- all workers sleeping and nothing pending -> we are done
   | allFinished && null pending =
-    tm
+    timeSoFar
+  -- some workers finished -> update graph and workers
+  | not (null finishedJobs) =
+    let workers' = cleanFinishedWorkers curWorkers
+        graph'   = foldl' (flip removeNode) curGraph finishedJobs
+    in execute timeSoFar $ curState { workers = workers', graph = graph' }
+  -- work pending and workers available -> give them some work!
   | not (null pending) && available > 0 =
-    let job = head pending
-        workers' = queueWork job (time job) (workers st)
-    in execute tm $ st { workers = workers' }
+    let workers' = foldl' (flip queueWork) curWorkers (take available pending)
+    in execute timeSoFar $ curState { workers = workers' }
+  -- nothing pending and some workers busy -> progress time
   | otherwise =
-    execute (tm+1) $ st { workers = tick (workers st)}
+    execute (timeSoFar+1) $ curState { workers = tick curWorkers }
   where
-    workingOn = C.keys (workers st)
-    pending = filter (not . (`elem` workingOn)) $ degree0s (counters st)
-    available = numWorkers st - workersBusy (workers st)
-    allFinished = workersBusy (workers st) == 0
-    finishedJobs = workDone (workers st)
+    workingOn = C.keys curWorkers
+    pending = filter (not . (`elem` workingOn)) $ degree0s curGraph
+    available = maxWorkers - workersBusy curWorkers
+    allFinished = workersBusy curWorkers == 0
+    finishedJobs = workDone curWorkers
 
 
+----------------------------------------------------------------------
+-- Worker structure
 
+-- | workers are just counters of nodes in work and the time left to finish them
+type Workers =
+  C.Counter Node Seconds
+
+type Seconds = Int
+
+
+-- | we start with no workers doing anything
 initWorkers :: Workers
 initWorkers = C.empty
 
 
+-- | how many workers are busy?
 workersBusy :: Workers -> Int
 workersBusy = C.size
 
 
-queueWork :: Char -> Int -> Workers -> Workers
-queueWork c ts = C.add c ts
+-- | add a job working on a Node
+queueWork :: Node -> Workers -> Workers
+queueWork node = C.add node (time node)
 
 
+-- | removes all workers finished with their job
 cleanFinishedWorkers :: Workers -> Workers
 cleanFinishedWorkers ws =
   removeWorkers (workDone ws) ws
 
 
-workDone :: Workers -> [Char]
+-- | lists all workers finished (no time left)
+workDone :: Workers -> [Node]
 workDone =
   map fst . filter (\(_,n) -> n == 0) . C.asc
 
 
-removeWorkers :: [Char] -> Workers -> Workers
-removeWorkers cs ws =
-  foldl' (\ws' c -> C.remove c ws') ws cs
+-- | removes workers
+removeWorkers :: [Node] -> Workers -> Workers
+removeWorkers nodes ws =
+  foldl' (flip C.remove) ws nodes
 
 
+-- | let the workers progress one second
 tick :: Workers -> Workers
 tick wks =
-  foldl' (\ws w -> C.decr w ws) wks $ C.keys wks
-
-
-part1 :: Input -> String
-part1 = topoSort
-
-
-topoSort :: Input -> [Char]
-topoSort inp = go $ degrees inp
-  where
-    go :: C.Counter Char Int -> [Char]
-    go degs = do
-      c <- maybe [] pure $ degree0 degs
-      let degs' = updateIncoming inp c degs
-      c : go degs'
-
-
-updateIncoming :: Input -> Char -> C.Counter Char Int -> C.Counter Char Int
-updateIncoming inp from cnt =
-  let cnt' = C.remove from cnt
-  in foldl' (\ cnt'' f -> C.decr f cnt'') cnt' $ map snd $ filter (\(f',_) -> f' == from) inp
-
-
-degrees :: Input -> C.Counter Char Int
-degrees inp = C.fromList $ concat [ [(f, 0), (t,1)] | (f,t) <- inp]
-
-
-degree0 :: C.Counter Char Int -> Maybe Char
-degree0 =
-  listToMaybe . map fst . sortBy (comparing fst) . filter (\ (_,n) -> n == 0) . C.asc
-
-
-degree0s :: C.Counter Char Int -> [Char]
-degree0s =
-  map fst . sortBy (comparing fst) . filter (\ (_,n) -> n == 0) . C.asc
+  foldl' (flip C.decr) wks $ C.keys wks
 
 
 ----------------------------------------------------------------------
 -- IO
 
-inputTxt :: IO Input
+inputTxt :: IO [Edge]
 inputTxt = map parseLine . lines <$> readFile "./src/Day7/input.txt"
 
 
-parseLine :: String -> Order
-parseLine = either (error . show) id . parse orderP "input.txt"
+parseLine :: String -> Edge
+parseLine = either (error . show) id . parse edgeP "input.txt"
 
 
 type Parser a = Parsec String () a
 
-
-orderP :: Parser Order
-orderP = (,) <$> (string "Step " *> anyChar <* string " must be finished before step ") <*> (anyChar <* string " can begin.")
-
-
-type Order
-  = (Char, Char)
-
+edgeP :: Parser Edge
+edgeP = (,) <$> (string "Step " *> anyChar <* string " must be finished before step ") <*> (anyChar <* string " can begin.")
