@@ -14,10 +14,12 @@ dependencies:
   - ansi-terminal
   - array
   - containers
+  - hashable
   - mtl
+  - parsec 
   - text
   - time
-  - parsec 
+  - unordered-containers
 
 default-extensions:
   - OverloadedStrings

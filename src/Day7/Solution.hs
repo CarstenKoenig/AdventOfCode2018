@@ -4,7 +4,7 @@ import           Data.Char (ord)
 import           Data.List (foldl')
 import           Text.Parsec
 import qualified Utils.Counter as C
-import qualified Utils.IGraph as G
+import qualified Utils.Graph as G
 
 
 type Input = [Edge]
