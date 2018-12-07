@@ -1,6 +1,6 @@
 module Utils.Counter
   ( Counter
-  , empty
+  , empty, size, keys
   , Utils.Counter.maximum, Utils.Counter.minimum
   , desc, asc
   , add, incr, decr
@@ -22,6 +22,14 @@ empty :: Counter key n
 empty = Counter Map.empty
 
 
+size :: Counter key n -> Int
+size (Counter m) = Map.size m
+
+
+keys :: Counter key n -> [key]
+keys (Counter m) = Map.keys m
+
+
 maximum :: Ord n => Counter key n -> (key, n)
 maximum = head . desc
 
@@ -38,19 +46,19 @@ asc :: Ord n => Counter key n -> [(key, n)]
 asc = sortBy (comparing snd) . Map.toList . getMap
 
 
-add :: Ord key => Num n => key -> n -> Counter key n -> Counter key n
-add key n = Counter . Map.insertWith (+) key n . getMap
+add :: Ord key => Num n => Ord n => key -> n -> Counter key n -> Counter key n
+add key n = Counter . Map.insertWith (\n' o -> max (n'+o) 0) key n . getMap
 
 
-incr :: Ord key => Num n => key -> Counter key n -> Counter key n
+incr :: Ord key => Num n => Ord n => key -> Counter key n -> Counter key n
 incr key = add key 1
 
 
-decr :: Ord key => Num n => key -> Counter key n -> Counter key n
+decr :: Ord key => Num n => Ord n => key -> Counter key n -> Counter key n
 decr key = add key (-1)
 
 
-fromList :: Ord key => Num n => [(key, n)] -> Counter key n
+fromList :: Ord key => Num n => Ord n => [(key, n)] -> Counter key n
 fromList = foldr (\(k,n) -> add k n) empty
 
 
