@@ -77,7 +77,8 @@ execute timeSoFar curState@(WorkState maxWorkers curWorkers curGraph)
     in execute timeSoFar $ curState { workers = workers' }
   -- nothing pending and some workers busy -> progress time
   | otherwise =
-    execute (timeSoFar+1) $ curState { workers = tick curWorkers }
+    let workForSecs = minWorkTime curWorkers
+    in execute (timeSoFar + workForSecs) $ curState { workers = tick workForSecs curWorkers }
   where
     workingOn = C.keys curWorkers
     pending = filter (not . (`elem` workingOn)) $ G.degree0s curGraph
@@ -129,10 +130,16 @@ removeWorkers nodes ws =
   foldl' (flip C.remove) ws nodes
 
 
+-- | how long will it take for the next worker to finish?
+minWorkTime :: Workers -> Seconds
+minWorkTime wks =
+  snd $ C.minimum wks
+
+
 -- | let the workers progress one second
-tick :: Workers -> Workers
-tick wks =
-  foldl' (flip C.decr) wks $ C.keys wks
+tick :: Seconds -> Workers -> Workers
+tick s wks =
+  foldl' (\wks' w -> C.add w (negate s) wks') wks $ C.keys wks
 
 
 ----------------------------------------------------------------------
