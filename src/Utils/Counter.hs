@@ -3,8 +3,9 @@ module Utils.Counter
   , empty
   , Utils.Counter.maximum, Utils.Counter.minimum
   , desc, asc
-  , add, incr
+  , add, incr, decr
   , fromList
+  , remove
   )
 where
 
@@ -14,6 +15,7 @@ import qualified Data.Map.Strict as Map
 import           Data.Ord (comparing)
 
 data Counter key n = Counter { getMap :: Map key n }
+  deriving Show
 
 
 empty :: Counter key n
@@ -44,5 +46,13 @@ incr :: Ord key => Num n => key -> Counter key n -> Counter key n
 incr key = add key 1
 
 
+decr :: Ord key => Num n => key -> Counter key n -> Counter key n
+decr key = add key (-1)
+
+
 fromList :: Ord key => Num n => [(key, n)] -> Counter key n
 fromList = foldr (\(k,n) -> add k n) empty
+
+
+remove :: Ord key => key -> Counter key n -> Counter key n
+remove k (Counter m) = Counter (Map.delete k m)
