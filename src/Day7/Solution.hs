@@ -1,85 +1,41 @@
 module Day7.Solution where
 
 import           Data.Char (ord)
-import           Data.List (sortBy, foldl')
-import           Data.Maybe (listToMaybe)
-import           Data.Ord (comparing)
+import           Data.List (foldl')
 import           Text.Parsec
 import qualified Utils.Counter as C
+import qualified Utils.Graph as G
 
 
 type Input = [Edge]
 
+type Graph = G.Graph Node
+
+type Edge = G.Edge Node
+
+type Node = Char
 
 run :: IO ()
 run = do
   putStrLn "DAY 7"
-  inp <- inputTxt
+  inputGraph <- G.toGraph <$> inputTxt
 
-  putStrLn $ "part 1: " ++ part1 inp
-  putStrLn $ "part 2: " ++ show (part2 inp)
+  putStrLn $ "part 1: " ++ part1 inputGraph
+  putStrLn $ "part 2: " ++ show (part2 inputGraph)
 
 
 ----------------------------------------------------------------------
 -- part 1
 
-part1 :: [Edge] -> String
-part1 = topoSort . toGraph
-
-----------------------------------------------------------------------
--- poor mans Graph
-
-data Graph = Graph
-  { incomingCounter :: C.Counter Node Int
-  , edges :: [Edge]
-  } deriving Show
-
-type Edge = (Node, Node)
-
-type Node = Char
-
-
--- | creates an @Graph from an list of edges
--- counting incomming edges for each node
-toGraph :: [Edge] -> Graph
-toGraph eds =
-  let incomming = C.fromList $ concat [ [(f, 0), (t,1)] | (f,t) <- eds]
-  in Graph incomming eds
-
-
--- | return the nodes in topological order
-topoSort :: Graph -> [Node]
-topoSort gr = do
-      c <- maybe [] pure $ nextNode gr
-      let gr' = removeNode c gr
-      c : topoSort gr'
-
-
--- | removes a node from a graph and updates the
--- incoming edge counters
-removeNode :: Char -> Graph -> Graph
-removeNode node gr =
-  let cnt' = C.remove node $ incomingCounter gr
-      cnt'' = foldl' (flip C.decr) cnt' $ map snd $ filter (\(f',_) -> f' == node) (edges gr)
-  in gr { incomingCounter = cnt'' }
-
-
--- | the next node in topological order
-nextNode :: Graph -> Maybe Char
-nextNode = listToMaybe . degree0s
-
-
--- | returns all nodes with no incomming edges
--- sorted for alphabetic order of the node-names
-degree0s :: Graph -> [Node]
-degree0s =
-  map fst . sortBy (comparing fst) . filter (\ (_,n) -> n == 0) . C.asc . incomingCounter
+-- | part 1 is just a topological sort of the input graph
+part1 :: Graph -> String
+part1 = G.topoSort
 
 
 ----------------------------------------------------------------------
 -- part 2
 
-part2 :: [Edge] -> Seconds
+part2 :: Graph -> Seconds
 part2 = execute 0 . initWorkState 5
 
 
@@ -100,8 +56,8 @@ data WorkState = WorkState
 
 
 -- | inits the state for part 2
-initWorkState :: Int -> [Edge] -> WorkState
-initWorkState n = WorkState n initWorkers . toGraph
+initWorkState :: Int -> Graph -> WorkState
+initWorkState n = WorkState n initWorkers
 
 
 -- | progresses time till all work is done and returns the seconds taken
@@ -113,7 +69,7 @@ execute timeSoFar curState@(WorkState maxWorkers curWorkers curGraph)
   -- some workers finished -> update graph and workers
   | not (null finishedJobs) =
     let workers' = cleanFinishedWorkers curWorkers
-        graph'   = foldl' (flip removeNode) curGraph finishedJobs
+        graph'   = foldl' (flip G.removeNode) curGraph finishedJobs
     in execute timeSoFar $ curState { workers = workers', graph = graph' }
   -- work pending and workers available -> give them some work!
   | not (null pending) && available > 0 =
@@ -124,7 +80,7 @@ execute timeSoFar curState@(WorkState maxWorkers curWorkers curGraph)
     execute (timeSoFar+1) $ curState { workers = tick curWorkers }
   where
     workingOn = C.keys curWorkers
-    pending = filter (not . (`elem` workingOn)) $ degree0s curGraph
+    pending = filter (not . (`elem` workingOn)) $ G.degree0s curGraph
     available = maxWorkers - workersBusy curWorkers
     allFinished = workersBusy curWorkers == 0
     finishedJobs = workDone curWorkers
@@ -185,6 +141,8 @@ tick wks =
 inputTxt :: IO [Edge]
 inputTxt = map parseLine . lines <$> readFile "./src/Day7/input.txt"
 
+inputTst :: IO [Edge]
+inputTst = map parseLine . lines <$> readFile "./src/Day7/test.txt"
 
 parseLine :: String -> Edge
 parseLine = either (error . show) id . parse edgeP "input.txt"
