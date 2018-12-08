@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 module Day8.Solution where
 
 import           Data.Char (isDigit)
@@ -13,7 +14,7 @@ run = do
 
   node <- inputTxt
   putStrLn $ "part 1: " ++ show (getSum $ checkSum node)
-  putStrLn $ "part 2: " ++ show (getSum $ value node)
+  putStrLn $ "part 2: " ++ show (getSum $ nodeValue node)
 
 
 -- | the input is a list of numbers
@@ -25,13 +26,14 @@ type Number = Int
 data Node = Node
   { children   :: IntMap Node
   , metadata   :: [Number]
+  , nodeValue  :: Sum Int
   } deriving Show
 
 
 -- | part 1:
 -- the checksum is just the sum of metadata + the sum of checksum of all children
 checkSum :: Node -> Sum Int
-checkSum (Node chs meta) =
+checkSum (Node chs meta _) =
   foldMap Sum meta <> foldMap checkSum chs
 
 
@@ -39,14 +41,13 @@ checkSum (Node chs meta) =
 -- if a node has no Children the value is just the sum of the metadata
 -- if a node has Children the metadata represent indizes and the value
 -- of the node becomes the sum of values of existing children
-value :: Node -> Sum Int
-value (Node chds meta) | null chds =
-  foldMap Sum meta
-value (Node chds ids) =
-  foldMap getChildValue ids
+calcValue :: IntMap Node -> [Number] -> Sum Int
+calcValue chds meta
+  | null chds = foldMap Sum meta
+  | otherwise = foldMap getChildValue meta
   where
     getChildValue ind =
-      maybe 0 value $ IntMap.lookup ind chds
+      maybe 0 nodeValue $ IntMap.lookup ind chds
 
 
 ----------------------------------------------------------------------
@@ -62,7 +63,7 @@ nodeP = do
   nrMeta <- numberP
   child <- IntMap.fromList . zip [1..] <$> count nrCh nodeP
   meta <- count nrMeta numberP
-  return $ Node child meta
+  return $ Node child meta (calcValue child meta)
 
 
 -- | parses a number suffixed by spaces
