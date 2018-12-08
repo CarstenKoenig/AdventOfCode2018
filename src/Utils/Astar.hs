@@ -2,6 +2,7 @@ module Utils.Astar
   ( Parameter (..)
   , Path
   , aStar
+  , testExample
   ) where
 
 
@@ -37,7 +38,7 @@ astar' env =
   case findPromissingNode env of
     Nothing -> []
     Just candidate
-      | isGoalNode env candidate -> constructPath env candidate
+      | isGoalNode env candidate -> reverse $ constructPath env candidate
       | otherwise ->
         let open'   = PQ.delete candidate $ open env
             closed' = S.insert (getClass env candidate) $ closed env
@@ -115,3 +116,25 @@ constructPath env node =
   case M.lookup node (cameFrom env) of
     Nothing   -> [node]
     Just from -> node : constructPath env from
+
+
+example :: Parameter Int Int
+example = Parameter
+  (\n -> abs (50-n))
+  (\n -> filter (\x -> x `mod` 3 /= 0 && x <= 50) $ [ n + delta | delta <- [1,2,5] ] )
+  (== 50)
+  id
+  (\_ _ -> 1)
+
+
+exampleResult :: [Int]
+exampleResult = [0,5,10,11,16,17,22,23,28,29,34,35,40,41,46,47,49,50]
+
+
+testExample :: IO ()
+testExample = do
+  let result = aStar example 0
+  if result == exampleResult then
+     putStrLn "OK"
+  else
+    error $ "algorithm failed with " ++ show result
