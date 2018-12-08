@@ -2,8 +2,9 @@
 module Day8.Solution where
 
 import           Data.Char (isDigit)
-import           Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
+import           Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
+import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Sum(..))
 import           Text.Parsec
 
@@ -14,7 +15,7 @@ run = do
 
   node <- inputTxt
   putStrLn $ "part 1: " ++ show (getSum $ checkSum node)
-  putStrLn $ "part 2: " ++ show (getSum $ nodeValue node)
+  putStrLn $ "part 2: " ++ show (getSum $ value node)
 
 
 -- | the input is a list of numbers
@@ -26,14 +27,13 @@ type Number = Int
 data Node = Node
   { children   :: IntMap Node
   , metadata   :: [Number]
-  , nodeValue  :: Sum Int
   } deriving Show
 
 
 -- | part 1:
 -- the checksum is just the sum of metadata + the sum of checksum of all children
 checkSum :: Node -> Sum Int
-checkSum (Node chs meta _) =
+checkSum (Node chs meta) =
   foldMap Sum meta <> foldMap checkSum chs
 
 
@@ -41,13 +41,14 @@ checkSum (Node chs meta _) =
 -- if a node has no Children the value is just the sum of the metadata
 -- if a node has Children the metadata represent indizes and the value
 -- of the node becomes the sum of values of existing children
-calcValue :: IntMap Node -> [Number] -> Sum Int
-calcValue chds meta
+value :: Node -> Sum Int
+value (Node chds meta)
   | null chds = foldMap Sum meta
   | otherwise = foldMap getChildValue meta
   where
+    values = IntMap.map value chds
     getChildValue ind =
-      maybe 0 nodeValue $ IntMap.lookup ind chds
+      fromMaybe 0 $ IntMap.lookup ind values
 
 
 ----------------------------------------------------------------------
@@ -63,7 +64,7 @@ nodeP = do
   nrMeta <- numberP
   child <- IntMap.fromList . zip [1..] <$> count nrCh nodeP
   meta <- count nrMeta numberP
-  return $ Node child meta (calcValue child meta)
+  return $ Node child meta
 
 
 -- | parses a number suffixed by spaces
