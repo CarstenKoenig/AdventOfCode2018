@@ -1,10 +1,9 @@
 module Day9.Solution where
 
-import           Control.Applicative (Const(..))
 import           Data.List (foldl')
-import           Data.List.PointedList (PointedList)
-import           Data.List.PointedList.Circular as PLC
 import           Data.Maybe (fromJust)
+import           Deque (Deque)
+import qualified Deque as D
 import           Utils.Counter (Counter)
 import qualified Utils.Counter as C
 
@@ -28,7 +27,7 @@ part2 = snd . highScore . players $ play 425 (70848 * 100)
 
 type Marble = Int
 
-type Circle = PointedList Int
+type Circle = Deque Int
 
 data State = State
   { circle  :: !Circle
@@ -46,7 +45,7 @@ play nrP nrM =
 -- | initializes the game
 start :: Int -> State
 start nrPlayers = State
-  { circle  = PLC.singleton 0
+  { circle  = D.fromList [0]
   , players = initPlayers nrPlayers
   , turn    = 1
   }
@@ -63,7 +62,7 @@ move m st
 -- | normal move: just inserts the marble 2 positions to the right
 insertMove :: Marble -> State -> State
 insertMove m st =
-  st { circle = PLC.insertRight m . PLC.next $ circle st
+  st { circle = D.cons m . nTimes 2 D.shiftLeft $ circle st
      , turn    = nextTurn st
      }
 
@@ -73,13 +72,16 @@ insertMove m st =
 -- current which is added as score as well
 scoreMove :: Marble -> State -> State
 scoreMove m st =
-  let circle' = PLC.moveN (-7) (circle st)
-      win = getConst $ PLC.focus Const circle'
-  in st { circle = fromJust $ PLC.deleteRight circle'
+  let (win, circle') = fromJust . D.uncons . nTimes 7 D.shiftRight $ circle st
+  in st { circle = circle'
         , players = scorePlayer (turn st) (m + win) (players st)
         , turn    = nextTurn st
         }
 
+nTimes :: Int -> (a -> a) -> a -> a
+nTimes n f !x
+  | n <= 0    = x
+  | otherwise = nTimes (n-1) f (f x)
 
 -- | determins the next player (just wraps around to 1 at the end)
 nextTurn :: State -> Player
