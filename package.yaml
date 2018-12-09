@@ -17,6 +17,7 @@ dependencies:
   - hashable
   - mtl
   - parsec 
+  - pointedlist
   - psqueues
   - text
   - time
