@@ -1,7 +1,10 @@
 module Main where
 
+import           Control.Monad ((>=>))
+import           Data.Maybe (fromJust)
 import           Data.Maybe (listToMaybe)
 import qualified Day1.Solution as Day1
+import qualified Day10.Solution as Day10
 import qualified Day2.Solution as Day2
 import qualified Day3.Solution as Day3
 import qualified Day4.Solution as Day4
@@ -10,11 +13,12 @@ import qualified Day6.Solution as Day6
 import qualified Day7.Solution as Day7
 import qualified Day8.Solution as Day8
 import qualified Day9.Solution as Day9
-import qualified Day10.Solution as Day10
 import           System.Environment (getArgs)
 import           System.IO (hSetBuffering, BufferMode(..), stdout)
 import           Text.Read (readMaybe)
-import Control.Monad ((>=>))
+
+maxDay :: Int
+maxDay = 10
 
 days :: [(Int, IO () -> IO ())]
 days =
@@ -29,6 +33,7 @@ days =
   , (8, cont Day8.run)
   , (9, cont Day9.run)
   , (10, cont Day10.run)
+  , (99, const runAll)
   ]
   where cont = (>>)
 
@@ -40,6 +45,12 @@ main = do
   case dayPrg of
     Just prg -> prg (return ())
     Nothing  -> queryProgram
+
+
+runAll :: IO ()
+runAll = go maxDay
+  where
+    go n = fromJust (getDay n) (go $ n - 1)
 
 
 getDayProgramFromArgs :: IO (Maybe (IO () -> IO ()))
