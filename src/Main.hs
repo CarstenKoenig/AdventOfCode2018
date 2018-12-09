@@ -10,6 +10,7 @@ import qualified Day6.Solution as Day6
 import qualified Day7.Solution as Day7
 import qualified Day8.Solution as Day8
 import qualified Day9.Solution as Day9
+import qualified Day10.Solution as Day10
 import           System.Environment (getArgs)
 import           System.IO (hSetBuffering, BufferMode(..), stdout)
 import           Text.Read (readMaybe)
@@ -27,6 +28,7 @@ days =
   , (7, cont Day7.run)
   , (8, cont Day8.run)
   , (9, cont Day9.run)
+  , (10, cont Day10.run)
   ]
   where cont = (>>)
 
