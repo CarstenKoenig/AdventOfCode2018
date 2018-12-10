@@ -8,6 +8,7 @@ import Data.Ord (comparing)
 import Text.Parsec
 import Control.Monad (mapM_)
 import Data.Tuple (swap)
+import Data.Function (on)
 
 
 type Input = [Point]
@@ -44,17 +45,17 @@ showText = mapM_ putStrLn . textLines
 
 
 textLines :: Input -> [String]
-textLines inp =
-  let lineXs = map (nub . map (subtract minX . fst)) . groupBy (\(_,y) (_,y') -> y == y') . sortBy (comparing swap) . map pos $ inp
-  in map printLine lineXs
+textLines inp = map formatLine lineXs
   where
-    minX = minimum . map (fst . pos) $ inp
-    maxX = subtract minX $ maximum . map (fst . pos) $ inp
-    printLine = go 0
+    lineXs              = map transformCoordsToXs . groupLines $ sortedByYandX
+    minX                = minimum . map (fst . pos) $ inp
+    sortedByYandX       = sortBy (comparing swap) . map pos $ inp
+    groupLines          = groupBy ((==) `on` snd)
+    transformCoordsToXs = nub . map (subtract minX . fst)
+    formatLine          = go 0
       where
-        go :: Int -> [Int] -> String
-        go p [] = replicate (maxX - p + 1) ' '
-        go p (d:ds) = replicate (d - p) ' ' ++ '#' : go (d+1) ds
+        go lastX (x:xs) = replicate (x-lastX) ' ' ++ '#' : go (x+1) xs
+        go _ []         = ""
 
 
 ----------------------------------------------------------------------
