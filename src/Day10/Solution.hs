@@ -63,11 +63,14 @@ textLines inp = map formatLine lineXs
 
 -- | idea is simple: iterate till the "line-height" stops decreasing the first time
 -- the line-height is the difference between the largest and smallest y-coordinate of any point
+-- based on the input you can tell that it's at least 10000 iterations till it's near the origin
+-- so I cheat a bit to get the runtime smaller
+-- if you don't like this just change the `10.000` here back to 1
 findMin :: Input -> (Int, Input)
-findMin input = go 0 (maxYDiff input) input
+findMin input = go 10000 (maxYDiff input) $ step 10000 input
   where
     go steps lstDiff inp =
-      let inp' = step inp
+      let inp' = step 1 inp
           diff = maxYDiff inp'
       in if diff > lstDiff then (steps, inp) else go (steps+1) diff inp'
 
@@ -80,14 +83,14 @@ maxYDiff pts = maxY - minY
 
 
 -- | moves ever point in the input once
-step :: Input -> Input
-step = map stepPoint
+step :: Int -> Input -> Input
+step t = map (stepPoint t)
 
 
 -- | moves the point
-stepPoint :: Point -> Point
-stepPoint (Point (px,py) v@(vx,vy)) =
-  Point (px+vx,py+vy) v
+stepPoint :: Int -> Point -> Point
+stepPoint t (Point (px,py) v@(vx,vy)) =
+  Point (px+t*vx,py+t*vy) v
 
 
 ----------------------------------------------------------------------
