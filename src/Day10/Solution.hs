@@ -53,8 +53,8 @@ textLines inp =
     printLine = go 0
       where
         go :: Int -> [Int] -> String
-        go p [] = replicate (maxX - p + 1) '.'
-        go p (d:ds) = replicate (d - p) '.' ++ '#' : go (d+1) ds
+        go p [] = replicate (maxX - p + 1) ' '
+        go p (d:ds) = replicate (d - p) ' ' ++ '#' : go (d+1) ds
 
 
 ----------------------------------------------------------------------
