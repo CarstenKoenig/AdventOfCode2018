@@ -5,6 +5,7 @@ import           Data.Maybe (fromJust)
 import           Data.Maybe (listToMaybe)
 import qualified Day1.Solution as Day1
 import qualified Day10.Solution as Day10
+import qualified Day11.Solution as Day11
 import qualified Day2.Solution as Day2
 import qualified Day3.Solution as Day3
 import qualified Day4.Solution as Day4
@@ -18,7 +19,7 @@ import           System.IO (hSetBuffering, BufferMode(..), stdout)
 import           Text.Read (readMaybe)
 
 maxDay :: Int
-maxDay = 10
+maxDay = 11
 
 days :: [(Int, IO () -> IO ())]
 days =
@@ -33,6 +34,7 @@ days =
   , (8, cont Day8.run)
   , (9, cont Day9.run)
   , (10, cont Day10.run)
+  , (11, cont Day11.run)
   , (99, const runAll)
   ]
   where cont = (>>)
