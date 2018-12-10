@@ -1,12 +1,27 @@
-module Day10.Solution where
+module Day10.Solution
+  ( run
+  ) where
 
 import Data.Char (isDigit)
-import Data.List (sortBy, sort, groupBy, nub)
+import Data.List (sortBy, groupBy, nub)
 import Data.Ord (comparing)
 import Text.Parsec
 import Control.Monad (mapM_)
 import Data.Tuple (swap)
 
+
+type Input = [Point]
+
+data Point = Point
+  { pos :: Pos
+  , speed :: Speed
+  } deriving Show
+
+type Pos = (Int, Int)
+type Speed = (Int, Int)
+
+----------------------------------------------------------------------
+-- main
 
 run :: IO ()
 run = do
@@ -20,10 +35,10 @@ run = do
   putStrLn $ "part 2:" ++ show steps
 
 
-part1 :: Input -> Input
-part1 = head . posLines
+----------------------------------------------------------------------
+-- text output
 
-
+-- | outputs the input as text (see the problem)
 showText :: Input -> IO ()
 showText = mapM_ putStrLn . textLines
 
@@ -42,14 +57,11 @@ textLines inp =
         go p (d:ds) = replicate (d - p) '.' ++ '#' : go (d+1) ds
 
 
-posLines :: Input -> [Input]
-posLines = filter inLine . animation
+----------------------------------------------------------------------
+-- find the text
 
-
-inLine :: Input -> Bool
-inLine = (== 7) . maxYDiff
-
-
+-- | idea is simple: iterate till the "line-height" stops decreasing the first time
+-- the line-height is the difference between the largest and smallest y-coordinate of any point
 findMin :: Input -> (Int, Input)
 findMin input = go 0 (maxYDiff input) input
   where
@@ -59,47 +71,34 @@ findMin input = go 0 (maxYDiff input) input
       in if diff > lstDiff then (steps, inp) else go (steps+1) diff inp'
 
 
+-- | calculates the difference between the largest and smallest y-coord
 maxYDiff :: Input -> Int
 maxYDiff pts = maxY - minY
   where minY = minimum . map (snd . pos) $ pts
         maxY = maximum . map (snd . pos) $ pts
 
 
-animation :: Input -> [Input]
-animation = iterate step
-
-
+-- | moves ever point in the input once
 step :: Input -> Input
 step = map stepPoint
 
 
+-- | moves the point
 stepPoint :: Point -> Point
 stepPoint (Point (px,py) v@(vx,vy)) =
   Point (px+vx,py+vy) v
 
 
+----------------------------------------------------------------------
+-- IO input
+
 inputTxt :: IO Input
 inputTxt = map parseLine . lines <$> readFile "./src/Day10/input.txt"
-
-
-inputTst :: IO Input
-inputTst = map parseLine . lines <$> readFile "./src/Day10/test.txt"
-
-
-type Input = [Point]
 
 parseLine :: String -> Point
 parseLine = either (error . show) id . parse pointP "input.txt"
 
-
 type Parser a = Parsec String () a
-
-
-data Point = Point
-  { pos :: Pos
-  , speed :: Speed
-  } deriving Show
-
 
 pointP :: Parser Point
 pointP = do
@@ -108,10 +107,6 @@ pointP = do
   _ <- string "velocity="
   v <- pairParser
   return $ Point p v
-
-
-type Pos = (Int, Int)
-type Speed = (Int, Int)
 
 pairParser :: Parser (Int, Int)
 pairParser = do
@@ -124,7 +119,6 @@ pairParser = do
 
 intP :: Parser Int
 intP = choice [ negate <$> (char '-' *> numP), numP ]
-
 
 numP :: Parser Int
 numP = read <$> many1 (satisfy isDigit)
