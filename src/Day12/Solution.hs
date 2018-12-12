@@ -22,6 +22,11 @@ newtype State = State { unState :: IntSet }
 
 type PotNr = Int
 
+
+insaneNumber :: Int
+insaneNumber = 50000000000
+
+
 ----------------------------------------------------------------------
 -- main
 run :: IO ()
@@ -30,13 +35,19 @@ run = do
   inp <- inputTxt
 
   putStrLn $ "part 1: " ++ show (part1 inp)
-  putStrLn $ "part 2: " ++ show (part2 inp 50000000000)
+  putStrLn $ "part 2: " ++ show (part2 inp insaneNumber)
 
 
 -- | steps through 20 generations and gives back
 -- the 'filledPots' value as described in the problem
 part1 :: Input -> Int
 part1 = filledPots . afterNGens 20
+
+
+-- | this will run happiliy for quite some time
+-- try your luck or move on to the "cheated" part 2
+part2naive :: Input -> Int
+part2naive = filledPots . afterNGens insaneNumber
 
 
 -- | uses 'findConstantDiff' to look for constant diffs
