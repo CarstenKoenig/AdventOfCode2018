@@ -24,6 +24,11 @@ type Parser a = Parsec String () a
 
 inputP :: Parser Input
 inputP = pure ()
-  where
-    intP :: Parser Int
-    intP = read <$> many1 (satisfy isDigit)
+
+
+intP :: Parser Int
+intP = choice [ negate <$> (char '-' *> numP), numP ]
+
+
+numP :: Parser Int
+numP = read <$> many1 (satisfy isDigit)
