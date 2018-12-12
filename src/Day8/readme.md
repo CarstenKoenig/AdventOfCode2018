@@ -6,3 +6,7 @@ this was a rather easy day - we are asked to parse in a list of numbers into a t
 easy with `parsec`
 
 After that it's only a matter of summing up *meta*-data
+
+---
+
+there is also an C# solution [here](../../csharp/Day8/Program.cs)
