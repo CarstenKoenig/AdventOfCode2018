@@ -16,3 +16,4 @@ these are my solution to this years [Advent of Code](https://adventofcode.com/20
 - [Day 9 in C#](./csharp/Day9#readme.md)
 - [Day 10](./src/Day10#readme.md)
 - [Day 11](./src/Day11#readme.md)
+- [Day 12](./src/Day12#readme.md)
