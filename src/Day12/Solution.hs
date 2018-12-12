@@ -17,10 +17,28 @@ run = do
   inp <- inputTxt
 
   putStrLn $ "part 1: " ++ show (part1 inp)
-
+  putStrLn $ "part 2: " ++ show (part2 inp 50000000000)
 
 part1 :: Input -> Int
-part1 = filledPots . after20Gens
+part1 = filledPots . afterNGens 20
+
+
+part2 :: Input -> Int -> Int
+part2 inp gen =
+  let (fromGen, genValue, diff) = findConstantDiff inp
+  in genValue + (gen - fromGen) * diff
+  -- or simply: 4698 + (gen - 102) * 46
+
+
+findConstantDiff :: Input -> (Int, Int, Int)
+findConstantDiff inp =
+  findConst $ diffs numbers
+  where
+    numbers = zip [0..] $ map filledPots $ iterate (step inp) (initial inp)
+    diffs ((_,lst):rest@((n,cur):_)) = (n,cur,cur-lst) : diffs rest
+    findConst (f@(_,_,a):rest@((_,_,b):(_,_,c):_))
+      | a == b && b == c = f
+      | otherwise = findConst rest
 
 
 filledPots :: State -> Int
@@ -28,8 +46,8 @@ filledPots (State st) =
   sum . map fst . filter (\(_,p) -> p) $ st
 
 
-after20Gens :: Input -> State
-after20Gens inp = nTimes 20 step' (initial inp)
+afterNGens :: Int -> Input -> State
+afterNGens n inp = nTimes n step' (initial inp)
   where step' = step inp
 
 
@@ -47,14 +65,8 @@ step inp st'@(State st) = State . go $ (firstN-4,False) : (firstN-3,False) : (fi
     firstN = firstPotNr st'
     lastN = lastPotNr st'
     rF = ruleF inp
-
-
-firstPotNr :: State -> Int
-firstPotNr (State ((nr,_):_)) = nr
-
-
-lastPotNr :: State -> Int
-lastPotNr = maximum . map fst . unState
+    firstPotNr (State ((nr,_):_)) = nr
+    lastPotNr = maximum . map fst . unState
 
 
 ruleF :: Input -> [Bool] -> Bool
