@@ -1,10 +1,11 @@
 {-# LANGUAGE TupleSections #-}
 module Day12.Solution where
 
-import Data.List (maximum)
-import Data.Maybe (fromMaybe)
-import Data.Monoid (All(..))
-import Text.Parsec hiding (State)
+import           Data.IntSet (IntSet)
+import qualified Data.IntSet as S
+import           Data.Maybe (fromMaybe)
+import           Data.Monoid (First(..))
+import           Text.Parsec hiding (State)
 
 
 data Input = Input
@@ -13,14 +14,13 @@ data Input = Input
   }
 
 
-type Rule = [Bool] -> Maybe Bool
-newtype State = State { unState :: [(Int, Bool)] }
+-- | will the given pot be alive next generation given the state?
+type Rule = PotNr -> State -> Maybe Bool
 
-instance Show State where
-  show (State st) = map toC st
-    where toC (_,True) = '#'
-          toC (_,False) = '.'
+newtype State = State { unState :: IntSet }
+  deriving Show
 
+type PotNr = Int
 
 ----------------------------------------------------------------------
 -- main
@@ -74,7 +74,7 @@ findConstantDiff inp =
 
 filledPots :: State -> Int
 filledPots (State st) =
-  sum . map fst . filter (\(_,p) -> p) $ st
+  sum $ S.toList st
 
 
 afterNGens :: Int -> Input -> State
@@ -84,30 +84,22 @@ afterNGens n inp = nTimes n step' (initial inp)
 
 -- | calculates the next generation of pots given a input and a state
 step :: Input -> State -> State
-step inp st'@(State st) = State $
+step inp st = State $
   -- new pots might be generated left and right of the current row of filled pots
   -- add 4 empty ones so the fold can use them
-  go $ (firstN-4,False) : (firstN-3,False) : (firstN-2,False) : (firstN-1,False)
-       : st
-       ++ [(lastN+1,False), (lastN+2, False), (lastN+3, False), (lastN+4, False)]
+  S.fromAscList . filter (combinedRules inp st) $ [firstPotNr-4..lastPotNr+4]
   where
-    -- look at 5 pots at each time - the one in the mid is calculated
-    go ((_,l1):(rest@((_,l2):(n,c):(_,r1):(_,r2):_))) =
-      (n, ruleF inp [l1,l2,c,r1,r2]) : go rest
-    -- if not enough pots remain stop
-    go _ = []
-
     -- helpers
-    firstN = firstPotNr st'
-    lastN = lastPotNr st'
-    firstPotNr = minimum . map fst . unState
-    lastPotNr = maximum . map fst . unState
+    firstPotNr = S.findMin $ unState st
+    lastPotNr  = S.findMax $ unState st
 
 
--- | collective rule - uses each given rule once after the others
-ruleF :: Input -> [Bool] -> Bool
-ruleF inp cur =
-  getAll . fromMaybe (All False) . foldMap (\r -> All <$> r cur) $ rules inp
+-- | combines all the rules
+-- assumes only one rule will match a given input pattern
+-- the first one returning a value is used
+combinedRules :: Input -> State -> PotNr -> Bool
+combinedRules inp cur potNr =
+  fromMaybe False . getFirst . foldMap (\rule -> First $ rule potNr cur) $ rules inp
 
 
 ----------------------------------------------------------------------
@@ -134,7 +126,9 @@ inputP = Input <$> initialP <*> many1 ruleP
 
 
 initialP :: Parser State
-initialP = State . zip [0..] <$> (string "initial state: " *> boolListP <* many newline)
+initialP = State . S.fromList . map fst . filter snd . zip [0..]
+           <$> (string "initial state: " *> boolListP <* many newline)
+
 
 ruleP :: Parser Rule
 ruleP = do
@@ -142,7 +136,13 @@ ruleP = do
   _ <- string " => "
   right <- boolP
   _ <- newline
-  pure $ \inp -> if and (zipWith (==) inp left) then Just right else Nothing
+  pure $ toRule left right
+  where
+    toRule bools outcome potNr (State set) =
+      if all (\(offset, expected) -> (potNr + offset) `S.member` set == expected) offsets
+      then Just outcome
+      else Nothing
+      where offsets = zip [-2..2] bools
 
 
 boolListP :: Parser [Bool]
@@ -154,7 +154,7 @@ boolP = choice [ char '.' *> pure False, char '#' *> pure True ]
 
 
 ----------------------------------------------------------------------
--- helpers 
+-- helpers
 
 nTimes :: Int -> (a -> a) -> a -> a
 nTimes 0  _ !x = x
