@@ -1,4 +1,4 @@
-module Utils.IGraph
+module Utils.Graph.Int
   ( Graph, Edge
   , toGraph
   , topoSort
