@@ -6,6 +6,7 @@ import qualified Data.Map.Strict as M
 import           Data.Maybe (listToMaybe, isNothing, fromJust)
 import           Data.Ord (comparing)
 import           Data.Tuple (swap)
+import           Debug.Trace (traceShowId)
 import           Prelude hiding (Left, Right)
 
 
@@ -60,11 +61,33 @@ run = do
   inp <- inputTxt
 
   putStrLn $ "part 1: " ++ show (part1 inp)
+  putStrLn $ "part 2: " ++ show (part2 inp)
 
 
 part1 :: Input -> Coord
 part1 = moveToCollision
 
+
+part2 :: Input -> Coord
+part2 = removeTillLast
+
+
+removeTillLast :: Input -> Coord
+removeTillLast inp = go inp
+  where
+    go inp' =
+      if M.size (carts inp') == 1 then
+        head . M.keys $ carts inp'
+      else
+        go $ foldl' (flip moveCartWithoutCol) inp' $ cartCoords inp'
+
+
+step :: Input -> Input
+step inp =
+      if M.size (carts inp) == 1 then
+        error (show $ head $ M.keys $ carts inp)
+      else
+        foldl' (flip moveCartWithoutCol) inp $ cartCoords inp
 
 moveToCollision :: Input -> Coord
 moveToCollision inp = go inp
@@ -86,6 +109,7 @@ cartCoords = sortBy (comparing swap) . M.keys . carts
 
 data MoveRes = Cont Input | Collision Coord
 
+
 moveCart :: Coord -> Input -> MoveRes
 moveCart coord@(x,y) inp@(Input cs ts)
   | not isCollision = Cont $ inp { carts = M.insert nextCoord nextCart withOut }
@@ -95,7 +119,7 @@ moveCart coord@(x,y) inp@(Input cs ts)
     isCollision = nextCoord `M.member` withOut
     nextCart = Cart nextDir nextBeh
     (nextDir, nextBeh) =
-      case (curDir, ts M.! nextCoord) of
+      case (curDir, getTrack ts nextCoord) of
         (Up, TurnLeft) -> (Left, curBeh)
         (Up, TurnRight) -> (Right, curBeh)
         (Up, Vertical) -> (Up, curBeh)
@@ -110,7 +134,7 @@ moveCart coord@(x,y) inp@(Input cs ts)
         (Right, Horizontal) -> (Right, curBeh)
         (_ , Intersection) -> nextDesc
         (d,t) -> error $ "invalid combination: " ++ show d ++ " and " ++ show t
-    (Cart curDir curBeh) = cs M.! coord
+    (Cart curDir curBeh) = getCart cs coord
     nextCoord =
       case curDir of
         Left -> (x-1,y)
@@ -129,6 +153,70 @@ moveCart coord@(x,y) inp@(Input cs ts)
         (Right, GoLeft:rest) -> (Up, rest)
         (Down, GoLeft:rest) -> (Right, rest)
         (Down, GoRight:rest) -> (Left, rest)
+
+
+moveCartWithoutCol :: Coord -> Input -> Input
+moveCartWithoutCol coord@(x,y) inp@(Input cs ts)
+  | not (cartAt cs coord) = inp
+  | not isCollision = inp { carts = M.insert nextCoord nextCart withOut }
+  | otherwise = inp { carts = M.delete nextCoord withOut }
+  where
+    withOut = M.delete coord cs
+    isCollision = nextCoord `M.member` withOut
+    nextCart = Cart nextDir nextBeh
+    (nextDir, nextBeh) =
+      case (curDir, getTrack ts nextCoord) of
+        (Up, TurnLeft) -> (Left, curBeh)
+        (Up, TurnRight) -> (Right, curBeh)
+        (Up, Vertical) -> (Up, curBeh)
+        (Left, TurnLeft) -> (Up, curBeh)
+        (Left, TurnRight) -> (Down, curBeh)
+        (Left, Horizontal) -> (Left, curBeh)
+        (Down, TurnLeft) -> (Right, curBeh)
+        (Down, TurnRight) -> (Left, curBeh)
+        (Down, Vertical) -> (Down, curBeh)
+        (Right, TurnLeft) -> (Down, curBeh)
+        (Right, TurnRight) -> (Up, curBeh)
+        (Right, Horizontal) -> (Right, curBeh)
+        (_ , Intersection) -> nextDesc
+        (d,t) -> error $ "invalid combination: " ++ show d ++ " and " ++ show t
+    (Cart curDir curBeh) = getCart cs coord
+    nextCoord =
+      case curDir of
+        Left -> (x-1,y)
+        Right -> (x+1,y)
+        Up -> (x,y-1)
+        Down -> (x,y+1)
+    nextDesc =
+      case (curDir, curBeh) of
+        (_, []) -> error "no behavior left"
+        (d, GoStraight:rest) -> (d, rest)
+        (Up, GoLeft:rest) -> (Left, rest)
+        (Up, GoRight:rest) -> (Right, rest)
+        (Left, GoLeft:rest) -> (Down, rest)
+        (Left, GoRight:rest) -> (Up, rest)
+        (Right, GoRight:rest) -> (Down, rest)
+        (Right, GoLeft:rest) -> (Up, rest)
+        (Down, GoLeft:rest) -> (Right, rest)
+        (Down, GoRight:rest) -> (Left, rest)
+
+
+
+getTrack :: Tracks -> Coord -> Track
+getTrack ts c =
+  if M.member c ts then ts M.! c
+  else error $ "there is no track at " ++ show c
+
+
+getCart :: Carts -> Coord -> Cart
+getCart ts c =
+  if cartAt ts c then ts M.! c
+  else error $ "there is no cart at " ++ show c
+
+
+cartAt :: Carts -> Coord -> Bool
+cartAt cs c = M.member c cs
+
 
 empty :: Input
 empty = Input M.empty M.empty
