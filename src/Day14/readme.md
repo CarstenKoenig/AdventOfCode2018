@@ -6,4 +6,4 @@ the problem today is not really hard but I did not find a good solution for Hask
 
 Right now I'm using `Data.Sequence` for the steps and it takes around 15s.
 
-The alternate C# solution is not only shorter but also done in an eye-blink ... very sad :(
+The [alternate C# solution](../../csharp/Day14/Program.cs) is not only shorter but also done in an eye-blink ... very sad :(
