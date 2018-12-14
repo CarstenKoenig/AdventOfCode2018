@@ -2,16 +2,9 @@ module Day14.Solution
   ( run
   ) where
 
-import           Data.Maybe (fromMaybe, fromJust)
 import           Data.Sequence (Seq)
 import qualified Data.Sequence as S
 import Data.List (isPrefixOf, tails)
-
-
-type Recipes = Seq Score
-
-type Score = Int
-type Index = Int
 
 
 data State = State
@@ -20,6 +13,18 @@ data State = State
   , recipes :: Recipes
   } deriving Show
 
+type Recipes = Seq Recipe
+type Recipe = Int
+type Index = Int
+
+type Input = Int
+
+-- | my input for todays problem
+input :: Input
+input = 894501
+
+----------------------------------------------------------------------
+-- main
 
 run :: IO ()
 run = do
@@ -35,16 +40,23 @@ part2 :: Int
 part2 = findInputIndex recipeList
 
 
+----------------------------------------------------------------------
+-- algorithm
+
+-- | starting state - two recipes 3 and 7
 start :: State
 start = State 0 1 (S.fromList [3,7])
 
 
-findInputIndex :: [Score] -> Int
+-- | looks for the first found index of the 'inpDigits' in all
+-- the tails (of the infinite stream)
+findInputIndex :: [Recipe] -> Index
 findInputIndex =
   length . takeWhile (not . (inpDigits `isPrefixOf`)) . tails
 
 
-recipeList :: [Score]
+-- | the inifinite stream of generated recipes
+recipeList :: [Recipe]
 recipeList = 3 : 7 : go start
   where
     go st =
@@ -52,7 +64,9 @@ recipeList = 3 : 7 : go start
       in added ++ go st'
 
 
-step :: State -> ([Score], State)
+-- | generates the next state and the added recipes for that state
+-- see the problem description for details on the procedure
+step :: State -> ([Recipe], State)
 step (State ind1 ind2 oldRecipes) = (added, State
   (stepForward ind1 recipe1)
   (stepForward ind2 recipe2)
@@ -65,21 +79,13 @@ step (State ind1 ind2 oldRecipes) = (added, State
     stepForward ind sc = (ind + sc + 1) `mod` (S.length newRecipes)
 
 
-combineRecipes :: Score -> Score -> [Score]
+-- | combines to recipes into a new one
+combineRecipes :: Recipe -> Recipe -> [Recipe]
 combineRecipes sc1 sc2 =
   let (m,r) = (sc1+sc2) `divMod` 10
   in if m == 0 then [r] else [m, r]
 
 
-inpDigits :: [Int]
-inpDigits = digits input
-
-
-digits :: Int -> [Int]
-digits =  map (read . pure) . show
-
-
-type Input = Int
-
-input :: Input
-input = 894501
+-- the input recipes
+inpDigits :: [Recipe]
+inpDigits = map (read .pure) $ show input
