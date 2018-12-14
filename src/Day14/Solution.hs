@@ -2,12 +2,12 @@ module Day14.Solution
   ( run
   ) where
 
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, fromJust)
+import           Data.Sequence (Seq)
+import qualified Data.Sequence as S
 
 
-type Recipes = Map Index Score
+type Recipes = Seq Score
 
 type Score = Int
 type Index = Int
@@ -26,7 +26,7 @@ part1 = concatMap show $ tenAfter start input
 
 -- should be 20365081
 part2 :: Int
-part2 = M.size (recipes found) - length tgt - off
+part2 = S.length (recipes found) - length tgt - off
   where
     found = findEndsWith
     off = if endsWith tgt 0 found then 0 else 1
@@ -34,16 +34,16 @@ part2 = M.size (recipes found) - length tgt - off
 
 
 start :: State
-start = State 0 1 (M.fromList $ zip [0..] [3,7])
+start = State 0 1 (S.fromList [3,7])
 
 
-tenAfter :: State -> Int -> [Int]
+tenAfter :: State -> Int -> Seq Int
 tenAfter state n =
-  map snd .take 10 . drop n . M.toList . recipes . head . dropWhile (\st -> M.size (recipes st) < 10 + n) $ iterate step state
+  S.take 10 . S.drop n . recipes . head . dropWhile (\st -> S.length (recipes st) < 10 + n) $ iterate step state
 
 
 showRecipes :: State -> String
-showRecipes = concatMap show . map snd . M.toList . recipes
+showRecipes = concatMap show . recipes
 
 
 endsWith :: String -> Int -> State -> Bool
@@ -58,10 +58,10 @@ endsWithInput :: State -> Bool
 endsWithInput st = checkDigits 0 || checkDigits 1
   where
     checkDigits off = and $ zipWith (==) [digitAt ind | ind <- [ recpSz - inpSize - off..]] inpDigits
-    digitAt ind = fromMaybe (-1) $ M.lookup ind (recipes st)
+    digitAt ind = fromMaybe (-1) $ S.lookup ind (recipes st)
     inpDigits = digits input
     inpSize = length inpDigits
-    recpSz = M.size (recipes st)
+    recpSz = nrRecipes st
 
 
 step :: State -> State
@@ -71,16 +71,16 @@ step st =
      , recipes = newRecipes
      }
   where
-    newRecipes = M.union (recipes st) $ M.fromList $ zip [nrRecs..] added
-    added = combineRecipes recipe1 recipe2
-    recipe1 = recipes st M.! elf1 st
-    recipe2 = recipes st M.! elf2 st
+    newRecipes = recipes st S.>< added
+    added = S.fromList $ combineRecipes recipe1 recipe2
+    recipe1 = fromJust $ recipes st S.!? elf1 st
+    recipe2 = fromJust $ recipes st S.!? elf2 st
     nrRecs = nrRecipes st
     stepForward ind sc = (ind + sc + 1) `mod` (nrRecs + length added)
 
 
 nrRecipes :: State -> Int
-nrRecipes = M.size . recipes
+nrRecipes = S.length . recipes
 
 
 combineRecipes :: Score -> Score -> [Score]
