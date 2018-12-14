@@ -55,13 +55,13 @@ findEndsWith = head $ dropWhile (not . endsWithInput) $ iterate step start
 
 
 endsWithInput :: State -> Bool
-endsWithInput st = checkDigits 0 || checkDigits 1
+endsWithInput st = checkDigits (recipes st)
   where
-    checkDigits off = and $ zipWith (==) [digitAt ind | ind <- [ recpSz - inpSize - off..]] inpDigits
-    digitAt ind = fromMaybe (-1) $ S.lookup ind (recipes st)
-    inpDigits = digits input
-    inpSize = length inpDigits
-    recpSz = nrRecipes st
+    checkDigits S.Empty = False
+    checkDigits s@(r S.:|> _) = checkEnd inpDigits s || checkEnd inpDigits r
+    checkEnd S.Empty _ = True
+    checkEnd _ S.Empty = False
+    checkEnd (restA S.:|> a) (restB S.:|> b) = a == b && checkEnd restA restB
 
 
 step :: State -> State
@@ -72,10 +72,10 @@ step st =
      }
   where
     newRecipes = recipes st S.>< added
-    added = S.fromList $ combineRecipes recipe1 recipe2
-    recipe1 = fromJust $ recipes st S.!? elf1 st
-    recipe2 = fromJust $ recipes st S.!? elf2 st
-    nrRecs = nrRecipes st
+    added      = combineRecipes recipe1 recipe2
+    recipe1    = fromJust $ recipes st S.!? elf1 st
+    recipe2    = fromJust $ recipes st S.!? elf2 st
+    nrRecs     = nrRecipes st
     stepForward ind sc = (ind + sc + 1) `mod` (nrRecs + length added)
 
 
@@ -83,12 +83,18 @@ nrRecipes :: State -> Int
 nrRecipes = S.length . recipes
 
 
-combineRecipes :: Score -> Score -> [Score]
-combineRecipes sc1 sc2 = digits $ sc1 + sc2
+combineRecipes :: Score -> Score -> Seq Score
+combineRecipes sc1 sc2 =
+  let (m,r) = (sc1+sc2) `divMod` 10
+  in if m == 0 then S.singleton r else S.fromList [m, r]
 
 
-digits :: Int -> [Int]
-digits = map (read . pure) . show
+inpDigits :: Seq Int
+inpDigits = digits input
+
+
+digits :: Int -> Seq Int
+digits = S.fromList . map (read . pure) . show
 
 
 run :: IO ()
