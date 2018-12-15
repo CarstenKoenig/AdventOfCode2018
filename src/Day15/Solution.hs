@@ -338,8 +338,8 @@ parseLine elfAp y = zipWith (parseCell elfAp y) [0..]
 
 
 parseCell :: AttackPower -> Int -> Int -> Char -> (Coord, Cell)
-parseCell _ y x '#' = ((y,x), Wall)
-parseCell _ y x 'G' = ((y,x), Creature Goblin 200 3)
+parseCell _ y x '#'     = ((y,x), Wall)
+parseCell _ y x 'G'     = ((y,x), Creature Goblin 200 3)
 parseCell elfAp y x 'E' = ((y,x), Creature Elf 200 elfAp)
-parseCell _ y x '.' = ((y,x), Free) 
-parseCell _ _ _ e   = error $ "unexpected cell-character: " ++ show e
+parseCell _ y x '.'     = ((y,x), Free) 
+parseCell _ _ _ e       = error $ "unexpected cell-character: " ++ show e
