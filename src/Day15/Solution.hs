@@ -1,15 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Day15.Solution where
+module Day15.Solution
+  (run
+  , showGrid
+  ) where
 
-import           Control.Monad.Trans.Maybe (runMaybeT)
-import           Data.Char (isDigit)
-import           Data.List (foldl', sort)
+import           Control.Monad (foldM)
+import           Data.List (sort)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import           Data.Maybe (catMaybes, mapMaybe, fromMaybe, listToMaybe)
-import           Data.Ord (comparing)
-import           Data.Tuple (swap)
-import           Text.Parsec
+import           Data.Maybe (listToMaybe, fromJust)
 import qualified Utils.Astar as AStar
 
 
@@ -51,12 +50,6 @@ showGrid grd = do
             Wall -> '#'
 
 
-enemyPoss :: Grid -> Creature -> [(Coord)]
-enemyPoss grd attacker =
-  map fst $ filter (isEnemy attacker . getCreature . snd) $ creatures grd
-  where getCreature (c,_,_) = c
-
-
 creatures :: Grid -> [(Coord, (Creature, HitPoints, AttackPower))]
 creatures = M.toAscList . M.mapMaybe getCreature
   where getCreature (Creature c hp ap ) = Just (c, hp, ap)
@@ -83,40 +76,65 @@ coords = M.keys
 
 part1 :: Grid -> Int
 part1 grd =
-  let (n, end) = endState grd
+  let (n, end) = fromJust $ endState True grd
   in (n-1) * sum (map (getHitPoints . snd) . creatures $ end)
   where getHitPoints (_, hp, _) = hp
 
 
-endState :: Grid -> (Int, Grid)
-endState grd = (\(n,(a,_)) -> (n,a)) . head . dropWhile (\(_,(a,b)) -> a /= b) $ zip [0..] $ zip rnds (tail rnds)
-  where rnds = rounds grd
+part2 :: String -> Int
+part2 inp = test 4
+  where
+    test attPw =
+      case endState False (parseInput attPw inp) of
+        Just (n, end) ->
+          (n-1) * sum (map (getHitPoints . snd) . creatures $ end)
+          where getHitPoints (_, hp, _) = hp
+        Nothing -> test (attPw + 1)
 
 
-rounds :: Grid -> [Grid]
-rounds = iterate singleRound
+endState :: Bool -> Grid -> Maybe (Int, Grid)
+endState mayElfDie grd =
+  (\(n,(a,_)) -> (n,a)) <$> (safeHead . dropWhile (\(_,(a,b)) -> a /= b) $ zip [0..] $ zip rnds (tail rnds))
+  where
+    rnds = rounds mayElfDie grd
+    safeHead [] = Nothing
+    safeHead (x:_) = Just x
 
 
-singleRound :: Grid -> Grid
-singleRound grd = foldl' unitActions grd $ map fst $ creatures grd
+
+rounds :: Bool -> Grid -> [Grid]
+rounds mayElfDie = iterateM (singleRound mayElfDie)
+
+
+iterateM :: (a -> Maybe a) -> a -> [a]
+iterateM f x =
+  case f x of
+    Nothing -> []
+    Just x' -> x : iterateM f x'
+
+
+singleRound :: Bool -> Grid -> Maybe Grid
+singleRound mayElfDie grd = foldM unitActions grd $ map fst $ creatures grd
   where
     unitActions grd' coord =
       case M.lookup coord grd' of
         Just (Creature _ _ _) ->
           let (to, grd'') = move coord grd'
-          in attack to grd''
-        _ -> grd'
+          in attack mayElfDie to grd''
+        _ -> Just grd'
 
 
-attack :: Coord -> Grid -> Grid
-attack from grd =
+attack :: Bool -> Coord -> Grid -> Maybe Grid
+attack mayElfDie from grd =
   case defs of
     (hp,at,ap'):_
       -- defender has enough hitpoints and survives
-      | hp > ap   -> M.insert at (Creature defender (hp-ap) ap') grd
+      | hp > ap   -> Just $ M.insert at (Creature defender (hp-ap) ap') grd
+      -- elf dies
+      | defender == Elf && not mayElfDie -> Nothing 
       -- defender dies
-      | otherwise -> M.insert at Free grd
-    _             -> grd
+      | otherwise -> Just $ M.insert at Free grd
+    _             -> Just $ grd
   where
     (Creature attacker _ ap) = grd M.! from
     defender = enemy attacker
@@ -136,12 +154,6 @@ findMove grd from =
   listToMaybe $ drop 1 $ AStar.aStar params from
   where params = astarConfig grd from
 
-findMoves :: Grid -> Coord -> [Coord]
-findMoves grd from =
-  AStar.aStar params from
-  where params = astarConfig grd from
-
-
 astarConfig :: Grid -> Coord -> AStar.Parameter Coord Coord
 astarConfig grd from = AStar.Parameter
   (const 0)
@@ -152,18 +164,9 @@ astarConfig grd from = AStar.Parameter
   where (Creature attacker _ _) = grd M.! from
 
 
-stepsToNearestEnemy :: Grid -> Creature -> Coord -> Int
-stepsToNearestEnemy grd attacker curPos =
-  pred . minimum $ map (dist curPos) $ enemyPoss grd attacker
-
-
 enemy :: Creature -> Creature
 enemy Goblin = Elf
 enemy Elf = Goblin
-
-
-isEnemy :: Creature -> Creature -> Bool
-isEnemy ofCreat other = other == enemy ofCreat
 
 
 freeNeighbours :: Grid -> Coord -> [Coord]
@@ -185,40 +188,36 @@ defenders grd attacker (r,c) =
           in (hp, coord, ap)
 
 
-dist :: Coord -> Coord -> Int
-dist (r,c) (r',c') = abs (r'-r) + abs (c'-c)
-
-
 run :: IO ()
 run = do
   putStrLn "DAY 15"
 
-  grd <- inputTxt
-  putStrLn $ "part 1: " ++ show (part1 grd)
+  inp <- inputTxt
+
+  let grd1 = parseInput 3 inp
+  putStrLn $ "part 1: " ++ show (part1 grd1)
+
+  putStrLn $ "part 2: " ++ show (part2 inp)
 
 
-inputFile :: FilePath -> IO Input
-inputFile path = parseInput <$> readFile ("./src/Day15/" ++ path)
-
-
-inputTxt :: IO Input
-inputTxt = parseInput <$> readFile "./src/Day15/input.txt"
+inputTxt :: IO String
+inputTxt = readFile "./src/Day15/input.txt"
 
 
 type Input = Grid
 
 
-parseInput :: String -> Input
-parseInput = M.fromList . concat . zipWith parseLine [0..] . lines
+parseInput :: AttackPower -> String -> Input
+parseInput elfAp = M.fromList . concat . zipWith (parseLine elfAp) [0..] . lines
 
 
-parseLine :: Int -> String -> [(Coord, Cell)]
-parseLine y = zipWith (parseCell y) [0..]
+parseLine :: AttackPower -> Int -> String -> [(Coord, Cell)]
+parseLine elfAp y = zipWith (parseCell elfAp y) [0..]
 
 
-parseCell :: Int -> Int -> Char -> (Coord, Cell)
-parseCell y x '#' = ((y,x), Wall)
-parseCell y x 'G' = ((y,x), Creature Goblin 200 3)
-parseCell y x 'E' = ((y,x), Creature Elf 200 3)
-parseCell y x '.' = ((y,x), Free) 
-parseCell _ _ e   = error $ "unexpected cell-character: " ++ show e
+parseCell :: AttackPower -> Int -> Int -> Char -> (Coord, Cell)
+parseCell _ y x '#' = ((y,x), Wall)
+parseCell _ y x 'G' = ((y,x), Creature Goblin 200 3)
+parseCell elfAp y x 'E' = ((y,x), Creature Elf 200 elfAp)
+parseCell _ y x '.' = ((y,x), Free) 
+parseCell _ _ _ e   = error $ "unexpected cell-character: " ++ show e
