@@ -8,6 +8,9 @@ the problem is rather straight forward - sadly I totally messed up becaues I tri
 
 after that part 2 was easy - it takes around 4s on my PC which is fine for me
 
+## C#
+
+here is the C# version: [Day 9 in C#](./csharp/Day9#readme.md)
 
 ---
 
