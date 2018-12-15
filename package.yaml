@@ -22,6 +22,7 @@ dependencies:
   - psqueues
   - text
   - time
+  - transformers
   - unordered-containers
 
 default-extensions:
