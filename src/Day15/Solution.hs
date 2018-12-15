@@ -66,7 +66,7 @@ run = do
 
   makeGrd <- parseGrid <$> inputTxt
 
-  anim makeGrd 6
+  anim makeGrd 7
 
   putStrLn $ "part 1: " ++ show (part1 $ makeGrd 3)
   putStrLn $ "part 2: " ++ show (part2 makeGrd)
@@ -313,10 +313,10 @@ showGrid grd = do
       where
         showContent x =
           case grd M.! (y,x) of
-            Free -> '.'
+            Free -> ' '
             Creature Goblin _ _ -> '@'
             Creature Elf _ _ -> '€'
-            Wall -> '#'
+            Wall -> '.'
 
 
 ----------------------------------------------------------------------
