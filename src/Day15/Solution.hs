@@ -4,11 +4,13 @@ module Day15.Solution
   , showGrid
   ) where
 
+import           Control.Concurrent (threadDelay)
 import           Control.Monad (foldM)
 import           Data.List (sort)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (listToMaybe, fromJust)
+import           System.Console.ANSI (clearScreen)
 import qualified Utils.Astar as AStar
 
 
@@ -64,8 +66,22 @@ run = do
 
   makeGrd <- parseGrid <$> inputTxt
 
+  anim makeGrd 6
+
   putStrLn $ "part 1: " ++ show (part1 $ makeGrd 3)
   putStrLn $ "part 2: " ++ show (part2 makeGrd)
+
+
+-- | have a little fun and animate a complete fight
+anim :: (AttackPower -> Grid) -> AttackPower -> IO ()
+anim mkGrid atkPw = go $ mkGrid atkPw
+  where
+    go grd = do
+      clearScreen
+      showGrid grd
+      threadDelay (500 * 1000)
+      let next = fromJust $ singleRound True grd
+      if next == grd then pure () else go next
 
 
 ----------------------------------------------------------------------
