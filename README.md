@@ -18,4 +18,4 @@ these are my solution to this years [Advent of Code](https://adventofcode.com/20
 - [Day 12](./src/Day12#readme.md)
 - [Day 13](./src/Day13#readme.md)
 - [Day 14](./src/Day14#readme.md)
-- [Day 15](./src/Day14#readme.md)
+- [Day 15](./src/Day15#readme.md)
