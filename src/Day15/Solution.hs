@@ -157,19 +157,20 @@ iterateMaybe f !x =
 -- IFF some elf died due to this attack
 attack :: Bool -> Coord -> Grid -> Maybe Grid
 attack mayElfDie from grd =
-  case defs of
-    (hp,at,ap'):_
-      -- defender has enough hitpoints and survives
-      | hp > ap   -> Just $ M.insert at (Creature defender (hp-ap) ap') grd
-      -- elf dies
-      | defender == Elf && not mayElfDie -> Nothing 
-      -- defender dies
-      | otherwise -> Just $ M.insert at Free grd
-    _             -> Just $ grd
+  case defenders grd attacker from of
+    -- at least one defender
+    (defHP, at, defAP) : _
+      -- defender has enough hitpoints and survives?
+      | defHP > ap -> Just $ M.insert at (Creature defender (defHP-ap) defAP) grd
+      -- defender is an elf that dies but no elves should die?
+      | defender == Elf && not mayElfDie -> Nothing
+      -- defender dies and it's ok
+      | otherwise  -> Just $ M.insert at Free grd
+    -- nothing to attack:
+    []             -> Just $ grd
   where
     (Creature attacker _ ap) = grd M.! from
     defender = enemy attacker
-    defs = defenders grd attacker from
 
 
 -- | get's all enemies that are in reach for the given creature type at the given coord
