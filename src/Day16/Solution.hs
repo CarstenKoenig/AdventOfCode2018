@@ -110,7 +110,7 @@ part1 = length . filter ((>= 3) . matchCount) . examples
 -- and run the input program
 part2 :: RegisterValue regV => Input regV -> regV
 part2 inp =
-  flip getRegister 0 . runProgram . translate corrs $ program inp
+  flip getRegister 0 . runProgram 4 . translate corrs $ program inp
   where corrs = genCorrespondence inp
 
 
@@ -175,9 +175,9 @@ testOpCode opC (Example regsBef prgLine regsAft) =
 
 -- | runs a program by 'executeInstruction' each line
 -- begining with empty registers
-runProgram :: RegisterValue regV => Program OpCode regV -> Registers regV
-runProgram = foldl' (flip executeInstruction) nullRegs
-  where nullRegs = Map.fromList $ zip [0..] $ replicate 4 0
+runProgram :: RegisterValue regV => Int -> Program OpCode regV -> Registers regV
+runProgram nrRegisters = foldl' (flip executeInstruction) nullRegs
+  where nullRegs = Map.fromList $ zip [0..] $ replicate nrRegisters 0
 
 
 -- | executes a instruction based on the [rules found here](https://adventofcode.com/2018/day/16)
@@ -270,8 +270,8 @@ numP = read <$> many1 (satisfy isDigit)
 ----------------------------------------------------------------------
 -- my correspondence (maybe need for other day)
 
-runMyProgram :: RegisterValue regV => Program OpCodeNumber regV -> Registers regV
-runMyProgram = runProgram . myTranslate
+runMyProgram :: RegisterValue regV => Int -> Program OpCodeNumber regV -> Registers regV
+runMyProgram nrRegisters = runProgram nrRegisters . myTranslate
 
 
 myTranslate :: Program OpCodeNumber regV -> Program OpCode regV
