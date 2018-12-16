@@ -1,7 +1,8 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+
+
 module Day16.Solution
   ( run
   , Registers, Register
@@ -17,6 +18,7 @@ import           Data.List (nub, (\\), foldl')
 import           Data.Map.Strict (Map, (!))
 import qualified Data.Map.Strict as Map
 import           Text.Parsec
+import Data.Word (Word16)
 
 
 -- | the register of the program is a map of register-indizes to values
@@ -88,8 +90,8 @@ run = do
   putStrLn "DAY 16"
   inp <- inputTxt
 
-  putStrLn $ "part 1: " ++ show (part1 inp)
-  putStrLn $ "part 2: " ++ show (part2 inp)
+  putStrLn $ "part 1: " ++ show (part1 @Word16 inp)
+  putStrLn $ "part 2: " ++ show (part2 @Word16 inp)
 
 
 ----------------------------------------------------------------------
@@ -97,7 +99,7 @@ run = do
 
 -- | just find all examples that match at least 3 op-codes
 -- and return their count
-part1 :: Input Int -> Int
+part1 :: RegisterValue regV => Input regV -> Int
 part1 = length . filter ((>= 3) . matchCount) . examples
 
 
@@ -105,8 +107,8 @@ part1 = length . filter ((>= 3) . matchCount) . examples
 -- part 2
 
 -- | find the correspoding op-codes based on the examples
--- and run the program with Int-register-values
-part2 :: Input Int -> Int
+-- and run the input program
+part2 :: RegisterValue regV => Input regV -> regV
 part2 inp =
   flip getRegister 0 . runProgram . translate corrs $ program inp
   where corrs = genCorrespondence inp
@@ -114,10 +116,9 @@ part2 inp =
 
 -- | translates a program given with 'OpCodeNumber's into one given 'OpCode's
 -- the later can then be executed
-translate :: forall regV . Correspondence -> Program OpCodeNumber regV -> Program OpCode regV
+translate :: Correspondence -> Program OpCodeNumber regV -> Program OpCode regV
 translate corr = map translate1
   where
-    translate1 :: Instruction regV OpCodeNumber -> Instruction regV OpCode
     translate1 = fmap ((corr !))
 
 
