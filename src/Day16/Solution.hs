@@ -17,8 +17,8 @@ import           Data.Char (isDigit)
 import           Data.List (nub, (\\), foldl')
 import           Data.Map.Strict (Map, (!))
 import qualified Data.Map.Strict as Map
+import           Data.Word (Word16)
 import           Text.Parsec
-import Data.Word (Word16)
 
 
 -- | the register of the program is a map of register-indizes to values
