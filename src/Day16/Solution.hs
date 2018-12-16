@@ -1,8 +1,11 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Day16.Solution
   ( run
-  , Registers, Register, RegisterValue
-  , Program, Instruction(..), OpCodeValue
+  , Registers, Register
+  , Program, Instruction(..)
   , OpCode(..)
   , runProgram, executeInstruction
   , runMyProgram, myTranslate
@@ -16,68 +19,60 @@ import qualified Data.Map.Strict as Map
 import           Text.Parsec
 
 
--- | all calculations should happen based on this type
-type Value         = Int
-
-
 -- | the register of the program is a map of register-indizes to values
-type Registers     = Map Register RegisterValue
-type Register      = Int
-type RegisterValue = Value
+-- parametrized over the kind of values stored in the register
+type Registers v     = Map Register v
 
+-- | the index into the register
+type Register        = Int
+
+-- | Constraint-Kind for Register-Values - Read for parsing the rest for execution
+type RegisterValue v = (Integral v, Bits v, Num v, Ord v, Read v)
 
 -- | a program is a list of instructions
-type Program opCode = [Instruction opCode]
+type Program opCode regV = [Instruction regV opCode]
 
--- | a instruction is parametrized on the type of the op-code
--- (an here be either an number or an actual op-code)
-data Instruction opCode = Instruction
+-- | a instruction is parametrized on:
+--       - the type of the register-values (the type our calculations are done with - Int seems ok for this proble)
+--       - the type of the op-code
+-- we want the functor-instance to be on 'opCode' for easy translation
+-- between Instructions baes on OpCodeNumber and on OpCodes
+data Instruction regV opCode = Instruction
   { opCode   :: opCode       -- ^ the OpCode of the Instruction - this will decide what operation to execute
-  , operand1 :: OpCodeValue  -- ^ the value of the first operand - a register number or a literal number, based on the 'opCode'
-  , operand2 :: OpCodeValue  -- ^ the value of the second operand
+  , operand1 :: regV         -- ^ the value of the first operand - a register number or a literal number, based on the 'opCode'
+  , operand2 :: regV         -- ^ the value of the second operand
   , output   :: Register     -- ^ the number of the register where the outcome of the computation should be written to
   } deriving (Show, Functor)
 
-type OpCodeValue = Value
 
 -- | all possible op-codes - see [problem description](https://adventofcode.com/2018/day/16)
 data OpCode
-  = AddR
-  | AddI
-  | MulR
-  | MulI
-  | BAnR
-  | BAnI
-  | BOrR
-  | BOrI
-  | SetR
-  | SetI
-  | GtIR
-  | GtRI
-  | GtRR
-  | EqIR
-  | EqRI
-  | EqRR
+  = AddR | AddI | MulR | MulI
+  | BAnR | BAnI | BOrR | BOrI
+  | SetR | SetI
+  | GtIR | GtRI | GtRR
+  | EqIR | EqRI | EqRR
   deriving (Show, Bounded, Enum, Eq, Ord)
 
 
 -- | input of todays problem
 -- example pairs of instructions and their effects
 -- and a small example program
-data Input = Input
-  { examples :: [Example]
-  , program  :: Program OpCodeNumber
+data Input regV = Input
+  { examples :: [Example regV]
+  , program  :: Program OpCodeNumber regV
   } deriving Show
 
 
 -- | an example Pair - the values of the regiserts before, an instruction and the registers after
-data Example = Example
-  { regsBefore  :: Registers
-  , instruction :: Instruction OpCodeNumber
-  , regsAfter   :: Registers
+data Example regV = Example
+  { regsBefore  :: Registers regV
+  , instruction :: Instruction regV OpCodeNumber
+  , regsAfter   :: Registers regV
   } deriving Show
 
 
+-- | type for the Opcode-Numbers - Int is fine here
 type OpCodeNumber  = Int
 
 -- | for part 2 our task is to find the correct Correspondence
@@ -102,14 +97,16 @@ run = do
 
 -- | just find all examples that match at least 3 op-codes
 -- and return their count
-part1 :: Input -> Int
+part1 :: Input Int -> Int
 part1 = length . filter ((>= 3) . matchCount) . examples
 
 
 ----------------------------------------------------------------------
 -- part 2
 
-part2 :: Input -> RegisterValue
+-- | find the correspoding op-codes based on the examples
+-- and run the program with Int-register-values
+part2 :: Input Int -> Int
 part2 inp =
   flip getRegister 0 . runProgram . translate corrs $ program inp
   where corrs = genCorrespondence inp
@@ -117,15 +114,17 @@ part2 inp =
 
 -- | translates a program given with 'OpCodeNumber's into one given 'OpCode's
 -- the later can then be executed
-translate :: Correspondence -> Program OpCodeNumber -> Program OpCode
+translate :: forall regV . Correspondence -> Program OpCodeNumber regV -> Program OpCode regV
 translate corr = map translate1
-  where translate1 = fmap (corr !)
+  where
+    translate1 :: Instruction regV OpCodeNumber -> Instruction regV OpCode
+    translate1 = fmap ((corr !))
 
 
 -- | iteratively generates a complete Correspondence table
 -- by adding 'singleMatches', remove those from consideration
 -- and recursively continue
-genCorrespondence :: Input -> Correspondence
+genCorrespondence :: RegisterValue regV => Input regV -> Correspondence
 genCorrespondence inp = go Map.empty opCodes
   where
     go corrs opCs =
@@ -137,13 +136,13 @@ genCorrespondence inp = go Map.empty opCodes
 
 -- | finds corresponding Numbers<->OpCodes
 -- we surely found one if only one op-code matches all examples for that number
-singleMatches :: Input -> Correspondence -> [OpCode] -> [(OpCodeNumber, OpCode)]
+singleMatches :: RegisterValue regV => Input regV -> Correspondence -> [OpCode] -> [(OpCodeNumber, OpCode)]
 singleMatches inp corrs opCs =
   nub . map head . filter ((== 1) . length) . map (matches corrs opCs) $ examples inp
 
 
 -- | looks for matching examples that are not mapped yet
-matches :: Correspondence -> [OpCode] -> Example -> [(OpCodeNumber, OpCode)]
+matches :: RegisterValue regV => Correspondence -> [OpCode] -> Example regV -> [(OpCodeNumber, OpCode)]
 matches corrs opCs toTest =
   if Map.member opNr corrs
   then []
@@ -155,7 +154,7 @@ matches corrs opCs toTest =
 -- find matches in examples
 
 -- | find all matching OpCodes for a given Example
-matchCount :: Example -> Int
+matchCount :: RegisterValue regV => Example regV -> Int
 matchCount toTest =
   length $ filter (flip testOpCode toTest) opCodes
 
@@ -163,7 +162,7 @@ matchCount toTest =
 -- | replaces an actual op-code for the number and
 -- checks if execution of this instruction with the examples input
 -- yield the examples output
-testOpCode :: OpCode -> Example -> Bool
+testOpCode :: RegisterValue regV => OpCode -> Example regV -> Bool
 testOpCode opC (Example regsBef prgLine regsAft) =
   let ins = const opC <$> prgLine
       outs = executeInstruction ins regsBef
@@ -175,13 +174,13 @@ testOpCode opC (Example regsBef prgLine regsAft) =
 
 -- | runs a program by 'executeInstruction' each line
 -- begining with empty registers
-runProgram :: Program OpCode -> Registers
+runProgram :: RegisterValue regV => Program OpCode regV -> Registers regV
 runProgram = foldl' (flip executeInstruction) nullRegs
   where nullRegs = Map.fromList $ zip [0..] $ replicate 4 0
 
 
 -- | executes a instruction based on the [rules found here](https://adventofcode.com/2018/day/16)
-executeInstruction :: Instruction OpCode -> Registers -> Registers
+executeInstruction :: RegisterValue regV => Instruction regV OpCode -> Registers regV -> Registers regV
 executeInstruction (Instruction opC op1 op2 toReg) regs =
   let newValue =
         case opC of
@@ -213,38 +212,38 @@ opCodes :: [OpCode]
 opCodes = [minBound .. maxBound]
 
 
-getRegister :: Registers -> Register -> RegisterValue
+getRegister :: Registers regV -> Register -> regV
 getRegister regs r = regs ! r
 
 
-setRegister :: Register -> RegisterValue -> Registers -> Registers
+setRegister :: Register -> regV -> Registers regV -> Registers regV
 setRegister r v = Map.insert r v
 
 ----------------------------------------------------------------------
 -- IO
 
-inputTxt :: IO Input
+inputTxt :: RegisterValue regV => IO (Input regV)
 inputTxt = parseInput <$> readFile "./src/Day16/input.txt"
 
 ----------------------------------------------------------------------
 -- parsing
 
-parseInput :: String -> Input
+parseInput :: RegisterValue regV => String -> Input regV
 parseInput = either (error . show) id . parse inputP "input.txt"
 
 
 type Parser a = Parsec String () a
 
 
-inputP :: Parser Input
+inputP :: RegisterValue regV => Parser (Input regV)
 inputP = Input <$> ((many1 exampleP) <* newline <* newline) <*> programP
 
 
-programP :: Parser (Program OpCodeNumber)
+programP :: RegisterValue regV => Parser (Program OpCodeNumber regV)
 programP = many1 instructionP
 
 
-exampleP :: Parser Example
+exampleP :: RegisterValue regV => Parser (Example regV)
 exampleP =
   Example
   <$> (string "Before: " *> registersInputP <* newline)
@@ -252,7 +251,7 @@ exampleP =
   <*> (string "After:" *> spaces *> registersInputP <* newline <* newline)
 
 
-registersInputP :: Parser Registers
+registersInputP :: RegisterValue regV => Parser (Registers regV)
 registersInputP =
   Map.fromList . zip [0..] <$> wordsListP
   where
@@ -260,7 +259,7 @@ registersInputP =
     wordsP = numP `sepBy` (char ',' <* spaces)
 
 
-instructionP :: Parser (Instruction OpCodeNumber)
+instructionP :: RegisterValue regV => Parser (Instruction regV OpCodeNumber)
 instructionP = Instruction <$> (numP <* space) <*> (numP <* space) <*> (numP <* space) <*> (numP <* space)
 
 
@@ -270,11 +269,11 @@ numP = read <$> many1 (satisfy isDigit)
 ----------------------------------------------------------------------
 -- my correspondence (maybe need for other day)
 
-runMyProgram :: Program OpCodeNumber -> Registers
+runMyProgram :: RegisterValue regV => Program OpCodeNumber regV -> Registers regV
 runMyProgram = runProgram . myTranslate
 
 
-myTranslate :: Program OpCodeNumber -> Program OpCode
+myTranslate :: Program OpCodeNumber regV -> Program OpCode regV
 myTranslate = translate myCorrespondence
 
 
