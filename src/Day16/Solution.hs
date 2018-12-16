@@ -2,30 +2,30 @@ module Day16.Solution where
 
 import           Data.Bits (Bits(..))
 import           Data.Char (isDigit)
+import           Data.List (nub, (\\), foldl')
 import           Data.Map.Strict (Map, (!))
 import qualified Data.Map.Strict as Map
-import           Data.Word (Word8)
 import           Text.Parsec
 
 
 
 
-type Registers = Map Register Word8
+type Registers = Map Register Int
 type Register = Int
 
 type OpCodeNumber = Int
 
 
 data Value
-  = Literal  Word8
+  = Literal  Int
   | Register Register
   deriving Show
 
 
 data Instruction = Instruction
   { insOpCode   :: OpCode
-  , insOperand1 :: Word8
-  , insOperand2 :: Word8
+  , insOperand1 :: Int
+  , insOperand2 :: Int
   , insOutput   :: Register
   } deriving Show
 
@@ -47,7 +47,7 @@ data OpCode
   | EqIR
   | EqRI
   | EqRR
-  deriving (Show, Bounded, Enum)
+  deriving (Show, Bounded, Enum, Eq, Ord)
 
 
 data Input = Input
@@ -65,10 +65,13 @@ data OpCodePair = OpCodePair
 
 data OpCodeInput = OpCodeInput
   { inpNumber   :: OpCodeNumber
-  , inpOperand1 :: Word8
-  , inpOperand2 :: Word8
+  , inpOperand1 :: Int
+  , inpOperand2 :: Int
   , inpOutput   :: Register
   } deriving Show
+
+
+type Correspondence = Map OpCodeNumber OpCode
 
 
 run :: IO ()
@@ -77,14 +80,56 @@ run = do
   inp <- inputTxt
 
   putStrLn $ "part 1: " ++ show (part1 inp)
+  putStrLn $ "part 2: " ++ show (part2 inp)
 
+----------------------------------------------------------------------
+-- part 1:
 
 part1 :: Input -> Int
 part1 = length . filter ((>= 3) . matchCount) . examples
 
+
 matchCount :: OpCodePair -> Int
 matchCount toTest =
   length $ filter (flip testOpCode toTest) opCodes
+
+
+----------------------------------------------------------------------
+-- part 2
+
+part2 :: Input -> Int
+part2 inp =
+  flip getRegister 0 . runProgram . translate corrs $ program inp
+  where corrs = genCorrespondence inp
+
+
+translate :: Correspondence -> [OpCodeInput] -> [Instruction]
+translate corr = map translate1
+  where
+    translate1 (OpCodeInput opNr op1 op2 out) = Instruction (corr ! opNr) op1 op2 out
+
+
+genCorrespondence :: Input -> Correspondence
+genCorrespondence inp = go Map.empty opCodes
+  where
+    go corrs opCs =
+      let newFound = singleMatches inp corrs opCs
+          newCorrs = Map.union corrs $ Map.fromList newFound
+          newOpCs  = opCs \\ map snd newFound
+      in if null newFound then corrs else go newCorrs newOpCs
+
+
+singleMatches :: Input -> Correspondence -> [OpCode] -> [(OpCodeNumber, OpCode)]
+singleMatches inp corrs opCs =
+  nub . map head . filter ((== 1) . length) . map (matches corrs opCs) $ examples inp
+
+
+matches :: Correspondence -> [OpCode] -> OpCodePair -> [(OpCodeNumber, OpCode)]
+matches corrs opCs toTest =
+  if Map.member opNr corrs
+  then []
+  else [ (opNr, opC) | opC <- opCs , testOpCode opC toTest ]
+  where opNr = inpNumber $ opCode toTest
 
 
 testOpCode :: OpCode -> OpCodePair -> Bool
@@ -100,6 +145,11 @@ opCodes = [minBound .. maxBound]
 
 test :: OpCodePair
 test = OpCodePair (Map.fromList $ zip [0..] [3,2,1,1]) (OpCodeInput 9 2 1 2) (Map.fromList $ zip [0..] [3,2,2,1])
+
+
+runProgram :: [Instruction] -> Registers
+runProgram = foldl' (flip executeInstruction) nullRegs
+  where nullRegs = Map.fromList $ zip [0..] $ replicate 4 0
 
 
 executeInstruction :: Instruction -> Registers -> Registers
@@ -127,11 +177,11 @@ executeInstruction (Instruction opC op1 op2 toReg) regs =
 
 
 
-getRegister :: Registers -> Register -> Word8
+getRegister :: Registers -> Register -> Int
 getRegister regs r = regs ! r
 
 
-setRegister :: Register -> Word8 -> Registers -> Registers
+setRegister :: Register -> Int -> Registers -> Registers
 setRegister r v = Map.insert r v
 
 ----------------------------------------------------------------------
