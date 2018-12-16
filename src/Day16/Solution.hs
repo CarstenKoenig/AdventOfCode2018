@@ -5,6 +5,7 @@ module Day16.Solution
   , Program, Instruction(..), OpCodeValue
   , OpCode(..)
   , runProgram, executeInstruction
+  , runMyProgram, myTranslate
   ) where
 
 import           Data.Bits (Bits(..))
@@ -265,3 +266,21 @@ instructionP = Instruction <$> (numP <* space) <*> (numP <* space) <*> (numP <* 
 
 numP :: (Read a, Num a) => Parser a
 numP = read <$> many1 (satisfy isDigit)
+
+----------------------------------------------------------------------
+-- my correspondence (maybe need for other day)
+
+runMyProgram :: Program OpCodeNumber -> Registers
+runMyProgram = runProgram . myTranslate
+
+
+myTranslate :: Program OpCodeNumber -> Program OpCode
+myTranslate = translate myCorrespondence
+
+
+myCorrespondence :: Correspondence
+myCorrespondence = Map.fromList
+  [ (0,BAnR), (1,AddR), (2,EqRI), (3,SetR), (4,GtRR), (5,BOrI)
+  , (6,GtIR), (7,SetI), (8,BOrR), (9,BAnI), (10,EqIR), (11,EqRR)
+  , (12,GtRI), (13,AddI), (14,MulI), (15,MulR)
+  ]
