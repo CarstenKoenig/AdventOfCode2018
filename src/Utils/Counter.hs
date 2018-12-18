@@ -2,6 +2,7 @@ module Utils.Counter
   ( Counter
   , empty, size, keys
   , Utils.Counter.maximum, Utils.Counter.minimum
+  , get
   , desc, asc
   , add, incr, decr
   , fromList
@@ -28,6 +29,9 @@ size (Counter m) = Map.size m
 
 keys :: Counter key n -> [key]
 keys (Counter m) = Map.keys m
+
+get :: Ord key => Counter key n -> key -> Maybe n
+get (Counter m) = (`Map.lookup` m)
 
 
 maximum :: Ord n => Counter key n -> (key, n)

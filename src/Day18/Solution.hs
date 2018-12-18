@@ -77,7 +77,7 @@ score start = trees * lumberyards
 -- finds a cylce and uses this to simplify
 part2 :: Generations -> Int
 part2 gens =
-  let (lastIter, firstIter, _) = findCycle gens
+  let (lastIter, firstIter) = findCycle gens
       lookAtIter = firstIter + ((target - firstIter) `mod` (lastIter - firstIter))
   in scoreAfterIterations gens lookAtIter
   where
@@ -85,17 +85,16 @@ part2 gens =
 
 
 -- | looks for a cylce after the first 500 generations
-findCycle :: Generations -> (Int, Int, Int)
+findCycle :: Generations -> (Int, Int)
 findCycle gens =
-  go M.empty $ drop 500 $ zip [0..] $ map area gens
+  go M.empty $ drop 400 $ zip [0..] $ map area gens
   where
     go _ [] = error "end of infinite sequence!?"
     go seen ((i,a):as) =
-      case M.lookup sc seen of
+      case M.lookup a seen of
         Nothing ->
-          go (M.insert sc i seen) as
-        Just i' -> (i,i',sc)
-      where sc = score a
+          go (M.insert a i seen) as
+        Just i' -> (i,i')
 
 
 ----------------------------------------------------------------------
