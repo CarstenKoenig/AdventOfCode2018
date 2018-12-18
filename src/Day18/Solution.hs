@@ -5,8 +5,9 @@ module Day18.Solution
   ) where
 
 
+import qualified Data.Array.IArray as Arr
+import           Data.Array.Unboxed (UArray)
 import           Data.Ix (inRange)
-import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
 
@@ -20,11 +21,10 @@ data State = State
   }
 
 
-type Area = Map Coord Acre
+type Area = UArray Coord Acre
 
 
-data Acre = Ground | Tree | LumberYard
-  deriving (Eq, Show, Ord, Enum, Bounded)
+type Acre = Char
 
 
 type Bounds = (Coord, Coord)
@@ -65,9 +65,9 @@ scoreAfterIterations gens n = score . area $ gens !! n
 score :: Area -> Int
 score start = trees * lumberyards
   where
-    acres       = M.elems start
-    trees       = length $ filter (== Tree) acres
-    lumberyards = length $ filter (== LumberYard) acres
+    acres       = Arr.elems start
+    trees       = length $ filter (== '|') acres
+    lumberyards = length $ filter (== '#') acres
 
 
 ----------------------------------------------------------------------
@@ -108,22 +108,23 @@ generations = iterate step
 -- | calcualtes the next iteration using 'nextAcre'
 step :: State -> State
 step state = state { area = area' }
-  where area' = M.fromList . map (nextAcre state) $ (areaCoords state)
+  where area' = Arr.array (areaBounds state) . map (nextAcre state) $ (areaCoords state)
 
 
 -- | calculate the content for agiven coord according to the rules given in todays problem
 nextAcre :: State -> Coord -> (Coord, Acre)
 nextAcre state coord =
   let next =
-        case area state M.! coord of
-          Ground     -> if trees >= 3 then Tree else Ground
-          Tree       -> if lumberyards >= 3 then LumberYard else Tree
-          LumberYard -> if lumberyards >= 1 && trees >= 1 then LumberYard else Ground
+        case area state Arr.! coord of
+          '.' -> if trees >= 3 then '|' else '.'
+          '|' -> if lumberyards >= 3 then '#' else '|'
+          '#' -> if lumberyards >= 1 && trees >= 1 then '#' else '.'
+          c   -> error $ "saw unknown Acre at " ++ show coord ++ ": " ++ show c
   in (coord, next)
   where
     surrs       = surroundingAcres state coord
-    trees       = length $ filter (== Tree) surrs
-    lumberyards = length $ filter (== LumberYard) surrs
+    trees       = length $ filter (== '|') surrs
+    lumberyards = length $ filter (== '#') surrs
 
 
 ----------------------------------------------------------------------
@@ -131,7 +132,7 @@ nextAcre state coord =
 
 -- | gives a list of all the neighbor contents of a coord
 surroundingAcres :: State -> Coord -> [Acre]
-surroundingAcres state = map (area state M.!) . surroundings (areaBounds state)
+surroundingAcres state = map (area state Arr.!) . surroundings (areaBounds state)
 
 
 -- | all 8 neighbors of a coords which are in the bounds
@@ -151,7 +152,7 @@ bounds a =
     maxRow = maximum $ map fst $ crds
     minCol = minimum $ map snd $ crds
     maxCol = maximum $ map snd $ crds
-    crds = M.keys a
+    crds = Arr.indices a
 
 
 -- | all Coordinates in Bounds
@@ -177,19 +178,14 @@ showArea (State a bds _) =
   where
     ((minRow,minCol), (maxRow,maxCol)) = bds
     showLine r = putStrLn $ map (getAcreChar r) [minCol..maxCol]
-    getAcreChar r c =
-      case M.lookup (r,c) a of
-        Just Ground     -> '.'
-        Just Tree       -> '|'
-        Just LumberYard -> '#'
-        Nothing         -> '?'
+    getAcreChar r c = a Arr.! (r,c)
 
 
 ----------------------------------------------------------------------
 -- parsing
 
 parseArea :: String -> Area
-parseArea = M.fromList . parseRows
+parseArea = Arr.array ((0,0), (49,49)). parseRows
 
 
 parseRows :: String -> [(Coord, Acre)]
@@ -197,8 +193,4 @@ parseRows = concat . zipWith parseRow [0..] . lines
 
 
 parseRow :: Int -> String -> [(Coord, Acre)]
-parseRow r = zipWith (\col ch -> ((r,col), toAcre ch)) [0..]
-  where toAcre '.' = Ground
-        toAcre '|' = Tree
-        toAcre '#' = LumberYard
-        toAcre c   = error $ "unkown area-type " ++ show c
+parseRow r = zipWith (\col ch -> ((r,col), ch)) [0..]
