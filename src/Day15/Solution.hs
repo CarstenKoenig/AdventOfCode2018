@@ -66,7 +66,7 @@ run = do
 
   makeGrd <- parseGrid <$> inputTxt
 
-  anim makeGrd 7
+  -- anim makeGrd 7
 
   putStrLn $ "part 1: " ++ show (part1 $ makeGrd 3)
   putStrLn $ "part 2: " ++ show (part2 makeGrd)
