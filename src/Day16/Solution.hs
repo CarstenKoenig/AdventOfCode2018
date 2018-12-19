@@ -8,7 +8,9 @@ module Day16.Solution
   , Registers, Register
   , Program, Instruction(..)
   , OpCode(..)
+  , RegisterValue
   , runProgram, executeInstruction
+  , getRegister, setRegister
   , runMyProgram, myTranslate
   ) where
 

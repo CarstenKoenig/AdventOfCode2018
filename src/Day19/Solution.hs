@@ -3,63 +3,34 @@
 {-# LANGUAGE ConstraintKinds #-}
 module Day19.Solution
   ( run
+  , Registers, Register
+  , Program, Instruction(..)
+  , OpCode(..)
+  , RegisterValue
+  , runProgram, executeInstruction
+  , getRegister, setRegister
+  , programP
   ) where
 
-import           Data.Bits (Bits(..))
 import           Data.Char (isDigit)
-import           Data.Map.Strict (Map, (!))
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import           Day16.Solution hiding (runProgram, run, Program)
 import           Debug.Trace (trace)
 import           Text.Parsec hiding (State)
 
 
+-- | State for program execution
 data State = State
-  { ipReg      :: Int
-  , program    :: Program OpCode Int
-  , insPointer :: Int
-  , registers  :: Registers Int
+  { ipReg      :: !Int             -- ^ which register should be used for the instruction-pointer
+  , program    :: Program Int      -- ^ the program to run
+  , insPointer :: !Int             -- ^ the current instruction pointer
+  , registers  :: Registers Int    -- ^ the current register values
   } deriving Show
 
 
--- | the register of the program is a map of register-indizes to values
--- parametrized over the kind of values stored in the register
-type Registers v     = Map Register v
-
-
--- | the index into the register
-type Register        = Int
-
-
--- | Constraint-Kind for Register-Values - Read for parsing the rest for execution
-type RegisterValue v = (Integral v, Bits v, Num v, Ord v, Read v)
-
-
--- | a program is a list of instructions
-type Program opCode regV = Map Int  (Instruction regV opCode)
-
-
--- | a instruction is parametrized on:
---       - the type of the register-values (the type our calculations are done with - Int seems ok for this proble)
---       - the type of the op-code
--- we want the functor-instance to be on 'opCode' for easy translation
--- between Instructions baes on OpCodeNumber and on OpCodes
-data Instruction regV opCode = Instruction
-  { opCode   :: opCode       -- ^ the OpCode of the Instruction - this will decide what operation to execute
-  , operand1 :: regV         -- ^ the value of the first operand - a register number or a literal number, based on the 'opCode'
-  , operand2 :: regV         -- ^ the value of the second operand
-  , output   :: Register     -- ^ the number of the register where the outcome of the computation should be written to
-  } deriving (Show, Functor)
-
-
--- | all possible op-codes - see [problem description](https://adventofcode.com/2018/day/16)
-data OpCode
-  = AddR | AddI | MulR | MulI
-  | BAnR | BAnI | BOrR | BOrI
-  | SetR | SetI
-  | GtIR | GtRI | GtRR
-  | EqIR | EqRI | EqRR
-  deriving (Show, Bounded, Enum, Eq, Ord)
-
+-- | a program is a map of instructions
+type Program regV = Map Int (Instruction regV OpCode)
 
 
 run :: IO ()
@@ -111,54 +82,20 @@ runProgram state =
 -- if there is no current instruction quit
 step :: State -> Maybe State
 step state = do
-  let regs' = setRegister (ipReg state) (insPointer state) (registers state)
   ins <- getInstruction state (insPointer state)
-  let regs'' = executeInstruction ins regs'
-  let ip' = getRegister regs'' (ipReg state) + 1
-  _ <- if ip' `elem` breaks then (trace (show regs'')) (Just ()) else Just ()
-  pure $ state { insPointer = ip', registers = regs'' }
+  let regsWithIP   = setRegister (ipReg state) (insPointer state) (registers state)
+  let regsAfterIns = executeInstruction ins regsWithIP
+  let nextIP = getRegister regsAfterIns (ipReg state) + 1
+  -- this one is a poor mans breakpoint/trace - just edit 'breaks' and evertime the IP hits one of these values we'll trace all registers
+  -- this way you can find out, what your constant actually looks like without hunting for it in the assembler code
+  _ <- if nextIP `elem` breaks then (trace (show regsAfterIns)) (Just ()) else Just ()
+  pure $ state { insPointer = nextIP, registers = regsAfterIns }
 
 
 -- | tries to get the current instruction
 getInstruction :: State -> Int -> Maybe (Instruction Int OpCode)
 getInstruction state ip' = Map.lookup ip' (program state)
 
-
--- | executes a instruction based on the [rules found here](https://adventofcode.com/2018/day/16)
-executeInstruction :: RegisterValue regV => Instruction regV OpCode -> Registers regV -> Registers regV
-executeInstruction (Instruction opC op1 op2 toReg) regs =
-  let newValue =
-        case opC of
-          AddR -> get op1 + get op2
-          AddI -> get op1 + op2
-          MulR -> get op1 * get op2
-          MulI -> get op1 * op2
-          BAnR -> get op1 .&. get op2
-          BAnI -> get op1 .&. op2
-          BOrR -> get op1 .|. get op2
-          BOrI -> get op1 .|. op2
-          SetR -> get op1
-          SetI -> op1
-          GtIR -> if op1 > get op2 then 1 else 0
-          GtRI -> if get op1 > op2 then 1 else 0
-          GtRR -> if get op1 > get op2 then 1 else 0
-          EqIR -> if op1 == get op2 then 1 else 0
-          EqRI -> if get op1 == op2 then 1 else 0
-          EqRR -> if get op1 == get op2 then 1 else 0
-  in setRegister toReg newValue regs
-  where get = getRegister regs . fromIntegral
-
-
-
-----------------------------------------------------------------------
--- helpers
-
-getRegister :: Registers regV -> Register -> regV
-getRegister regs r = regs ! r
-
-
-setRegister :: Register -> regV -> Registers regV -> Registers regV
-setRegister r v = Map.insert r v
 
 ----------------------------------------------------------------------
 -- IO
@@ -183,7 +120,7 @@ stateP = do
   pure $ State ipR prg 0 (Map.fromList $ zip [0..] $ replicate 6 0)
 
 
-programP :: RegisterValue regV => Parser (Program OpCode regV)
+programP :: RegisterValue regV => Parser (Program regV)
 programP = Map.fromList . zip [0..] <$> many1 instructionP
 
 
