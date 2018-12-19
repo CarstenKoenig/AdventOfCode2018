@@ -4,7 +4,6 @@
 module Day19.Solution where
 
 import           Data.Bits (Bits(..))
-import qualified Data.Bits as Bits
 import           Data.Char (isDigit)
 import           Data.List (foldl')
 import           Data.Map.Strict (Map, (!))
@@ -12,10 +11,11 @@ import qualified Data.Map.Strict as Map
 import           Text.Parsec hiding (State)
 
 
-data State regV = State
-  { ipReg    :: Int
-  , program  :: Program OpCode regV
-  , ip       :: Int
+data State = State
+  { ipReg      :: Int
+  , program    :: Program OpCode Int
+  , insPointer :: Int
+  , registers  :: Registers Int
   } deriving Show
 
 
@@ -33,7 +33,7 @@ type RegisterValue v = (Integral v, Bits v, Num v, Ord v, Read v)
 
 
 -- | a program is a list of instructions
-type Program opCode regV = [Instruction regV opCode]
+type Program opCode regV = Map Int  (Instruction regV opCode)
 
 
 -- | a instruction is parametrized on:
@@ -62,8 +62,11 @@ data OpCode
 run :: IO ()
 run = do
   putStrLn "DAY 19"
+  prg <- inputTxt
 
+  let end = runProgram prg
 
+  putStrLn $ "part 1: " ++ show ((getRegister $ registers end) 0)
 
 
 ----------------------------------------------------------------------
@@ -71,9 +74,24 @@ run = do
 
 -- | runs a program by 'executeInstruction' each line
 -- begining with empty registers
-runProgram :: RegisterValue regV => Int -> Program OpCode regV -> Registers regV
-runProgram nrRegisters = foldl' (flip executeInstruction) nullRegs
-  where nullRegs = Map.fromList $ zip [0..] $ replicate nrRegisters 0
+runProgram :: State -> State
+runProgram state =
+  case step state of
+    Nothing -> state
+    Just state' -> runProgram state'
+
+
+step :: State -> Maybe State
+step state = do
+  let regs' = setRegister (ipReg state) (insPointer state) (registers state)
+  ins <- getInstruction state (insPointer state)
+  let regs'' = executeInstruction ins regs'
+  let ip' = getRegister regs'' (ipReg state) + 1
+  pure $ state { insPointer = ip', registers = regs'' }
+
+
+getInstruction :: State -> Int -> Maybe (Instruction Int OpCode)
+getInstruction state ip' = Map.lookup ip' (program state)
 
 
 -- | executes a instruction based on the [rules found here](https://adventofcode.com/2018/day/16)
@@ -119,29 +137,31 @@ setRegister r v = Map.insert r v
 ----------------------------------------------------------------------
 -- IO
 
-inputTxt :: IO String
-inputTxt = readFile "./src/Day19/input.txt"
+inputTxt :: IO State
+inputTxt = parseInput <$> readFile "./src/Day19/input.txt"
 
 
+inputTst :: IO State
+inputTst = parseInput <$> readFile "./src/Day19/test.txt"
 ----------------------------------------------------------------------
 -- parsing
 
-parseInput :: RegisterValue regV => String -> State regV
+parseInput :: String -> State
 parseInput = either (error . show) id . parse stateP "input.txt"
 
 
 type Parser a = Parsec String () a
 
 
-stateP :: RegisterValue regV => Parser (State regV)
+stateP :: Parser State
 stateP = do
   ipR <- ipRegP <* newline
   prg <- programP
-  pure $ State ipR prg 0
+  pure $ State ipR prg 0 (Map.fromList $ zip [0..] $ replicate 6 0)
 
 
 programP :: RegisterValue regV => Parser (Program OpCode regV)
-programP = many1 instructionP
+programP = Map.fromList . zip [0..] <$> many1 instructionP
 
 
 instructionP :: RegisterValue regV => Parser (Instruction regV OpCode)
