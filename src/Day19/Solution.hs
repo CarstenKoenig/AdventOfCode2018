@@ -1,13 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ConstraintKinds #-}
-module Day19.Solution where
+module Day19.Solution
+  ( run
+  ) where
 
 import           Data.Bits (Bits(..))
 import           Data.Char (isDigit)
-import           Data.List (foldl')
 import           Data.Map.Strict (Map, (!))
 import qualified Data.Map.Strict as Map
+import           Debug.Trace (trace)
 import           Text.Parsec hiding (State)
 
 
@@ -59,14 +61,36 @@ data OpCode
   deriving (Show, Bounded, Enum, Eq, Ord)
 
 
+
 run :: IO ()
 run = do
   putStrLn "DAY 19"
   prg <- inputTxt
 
   let end = runProgram prg
-
   putStrLn $ "part 1: " ++ show ((getRegister $ registers end) 0)
+  putStrLn $ "part 2: " ++ show part2
+
+----------------------------------------------------------------------
+-- Part 2
+
+constant :: Int
+constant = 10551386
+
+
+divisors :: Int -> [Int]
+divisors n = [ t | t <- [1..n] , n `mod` t == 0 ]
+
+
+-- | the algorithm is easy: sum up divisors
+part2 :: Int
+part2 = sum $ divisors constant
+
+
+-- | used as breakpoits to output registers
+-- use this to identify the 'konstante' in your input (it's the lower number staying constant at line 2)
+breaks :: [Int]
+breaks = []
 
 
 ----------------------------------------------------------------------
@@ -81,15 +105,21 @@ runProgram state =
     Just state' -> runProgram state'
 
 
+-- | one step of operation:
+-- sets my ip-register to the ip, executes the current instruction and sets the
+-- ip from the ip-register + 1
+-- if there is no current instruction quit
 step :: State -> Maybe State
 step state = do
   let regs' = setRegister (ipReg state) (insPointer state) (registers state)
   ins <- getInstruction state (insPointer state)
   let regs'' = executeInstruction ins regs'
   let ip' = getRegister regs'' (ipReg state) + 1
+  _ <- if ip' `elem` breaks then (trace (show regs'')) (Just ()) else Just ()
   pure $ state { insPointer = ip', registers = regs'' }
 
 
+-- | tries to get the current instruction
 getInstruction :: State -> Int -> Maybe (Instruction Int OpCode)
 getInstruction state ip' = Map.lookup ip' (program state)
 
@@ -123,10 +153,6 @@ executeInstruction (Instruction opC op1 op2 toReg) regs =
 ----------------------------------------------------------------------
 -- helpers
 
-opCodes :: [OpCode]
-opCodes = [minBound .. maxBound]
-
-
 getRegister :: Registers regV -> Register -> regV
 getRegister regs r = regs ! r
 
@@ -140,9 +166,6 @@ setRegister r v = Map.insert r v
 inputTxt :: IO State
 inputTxt = parseInput <$> readFile "./src/Day19/input.txt"
 
-
-inputTst :: IO State
-inputTst = parseInput <$> readFile "./src/Day19/test.txt"
 ----------------------------------------------------------------------
 -- parsing
 

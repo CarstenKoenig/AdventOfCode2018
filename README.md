@@ -22,3 +22,4 @@ these are my solution to this years [Advent of Code](https://adventofcode.com/20
 - [Day 16](./src/Day16#readme.md)
 - [Day 17](./src/Day17#readme.md)
 - [Day 18](./src/Day18#readme.md)
+- [Day 19](./src/Day18#readme.md)
