@@ -12,8 +12,6 @@ import qualified Data.Map.Strict as Map
 import           Data.Ord (comparing)
 import           Data.Sequence (Seq((:<|)), (><))
 import qualified Data.Sequence as Seq
-import           Data.Set (Set)
-import qualified Data.Set as Set
 import           Text.Parsec hiding (Empty)
 
 
@@ -76,16 +74,15 @@ furthestRoom =
 
 -- | visites every room breadth-first and marks the doors in between
 markDoors :: Grid Tile -> Grid DoorsBetween
-markDoors tileGrid = go Set.empty (Seq.singleton ((0,0), 0)) (Map.singleton (0,0) 0)
+markDoors tileGrid = go (Seq.singleton ((0,0), 0)) (Map.singleton (0,0) 0)
   where
-    go :: Set Coord -> Seq (Coord, DoorsBetween) -> Grid DoorsBetween -> Grid DoorsBetween
-    go _ Seq.Empty grd = grd
-    go visited ((nextCoord, doors) :<| restCoords) grd =
-      let visited' = Set.insert nextCoord visited
-          neighs   = map (updatedDoorCount doors) $ filter (not . (`Set.member` visited)) $ neighbors nextCoord
+    go :: Seq (Coord, DoorsBetween) -> Grid DoorsBetween -> Grid DoorsBetween
+    go Seq.Empty grd = grd
+    go ((nextCoord, doors) :<| restCoords) grd =
+      let neighs   = map (updatedDoorCount doors) $ filter (not . (`Map.member` grd)) $ neighbors nextCoord
           restCoords' = restCoords >< Seq.fromList neighs
           grd'     = foldl' (\g (nc, dc) -> Map.insert nc dc g) grd neighs
-      in go visited' restCoords' grd'
+      in go restCoords' grd'
     neighbors :: Coord -> [Coord]
     neighbors (row,col) =
       filter (`Map.member` tileGrid) $ [ (row-1,col), (row, col-1), (row, col+1), (row+1,col) ]
