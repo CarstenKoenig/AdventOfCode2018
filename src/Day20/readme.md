@@ -20,4 +20,6 @@ In general **this is not correct** but for my input it worked out ;)
 
 ---
 
-TODO: for my input only one room is visited twice - I should still correct the algorithm (don't write the steps, write the coord of the previous note for the best path and count afterwards)
+TODO: for my input only one room is visited twice
+
+obviously I should redo this with a valid algorithm - maybe after the holidays ;)

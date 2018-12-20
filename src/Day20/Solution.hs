@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Day20.Solution where
 
 import           Data.List (foldl', maximumBy)
@@ -17,6 +18,7 @@ type Coord = (Int, Int)
 data Tile
   = Floor
   | Door
+  deriving Eq
 
 type DoorsBetween = Int
 
@@ -65,6 +67,18 @@ furthestRoom =
 ----------------------------------------------------------------------
 -- grid generation
 
+
+generateGrid' :: RegEx -> Grid
+generateGrid' = snd . hyloRegex fold (0, Map.fromList [((0,0), (Floor, 0))])
+  where
+    fold (coord, tile) (nrDoors, grd) =
+      let nrDoors' = if tile == Door then nrDoors + 1 else nrDoors
+      in (nrDoors', Map.insertWith minDoors coord (tile, nrDoors') grd)
+    minDoors (newTile, newDoors) (_, oldDoors) =
+      let updDoors = (if oldDoors /= newDoors then trace ("updating doors") else id) min newDoors oldDoors
+      in (newTile, updDoors)
+
+
 -- | generates the grid from the regex
 generateGrid :: RegEx -> Grid
 generateGrid = go (0,0) 0 (Map.fromList [((0,0), (Floor, 0))])
@@ -101,6 +115,42 @@ generateGrid = go (0,0) 0 (Map.fromList [((0,0), (Floor, 0))])
     minDoors (newTile, newDoors) (_, oldDoors) =
       let updDoors = (if oldDoors /= newDoors then trace ("updating doors") else id) min newDoors oldDoors
       in (newTile, updDoors)
+
+
+-- | unfolds all coords using the regex and folds an result over those coords and the tile type
+-- | the order will be determined by the regex and you shouls make no assumption about it
+hyloRegex :: forall state . ((Coord, Tile) -> state -> state) -> state -> RegEx -> state
+hyloRegex fold = go (0,0)
+  where
+    go :: Coord -> state -> RegEx -> state
+    go coord@(row,col) state regEx =
+      case regEx of
+        Start more     -> go coord state more
+        Stop           -> state
+        Dir North more ->
+          let coord'  = (row-1,col)
+              coord'' = (row-2,col)
+              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+          in go coord'' state' more
+        Dir South more ->
+          let coord'  = (row+1,col)
+              coord'' = (row+2,col)
+              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+          in go coord'' state' more
+        Dir West more ->
+          let coord'  = (row,col-1)
+              coord'' = (row,col-2)
+              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+          in go coord'' state' more
+        Dir East more ->
+          let coord'  = (row,col+1)
+              coord'' = (row,col+2)
+              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+          in go coord'' state' more
+        Choice cs more ->
+          let state' = foldl' (go coord) state cs
+          in go coord state' more
+        Empty -> state
 
 
 ----------------------------------------------------------------------
