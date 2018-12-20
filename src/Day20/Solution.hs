@@ -1,6 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Day20.Solution where
+
+module Day20.Solution
+  ( run
+  , drawGrid
+  ) where
 
 import           Data.List (foldl', maximumBy)
 import           Data.Map.Strict (Map)
@@ -135,25 +139,14 @@ hyloRegex fold = go (0,0)
 
 
 ----------------------------------------------------------------------
--- some example
-
-example1 :: [Char]
-example1 = "^ENWWW(NEEE|SSE(EE|N))$"
-example2 :: [Char]
-example2 = "^ENNWSWW(NEWS|)SSSEEN(WNSE|)EE(SWEN|)NNN$"
-example3 :: [Char]
-example3 = "^WSSEESWWWNW(S|NENNEEEENN(ESSSSW(NWSW|SSEN)|WSWWN(E|WWS(E|SS))))$"
-
-
-----------------------------------------------------------------------
 -- grid output
 
-drawGrid :: Grid (Tile, DoorsBetween) -> IO ()
+drawGrid :: Grid Tile -> IO ()
 drawGrid grd =
   mapM_ (putStrLn . drawLine) [minR..maxR]
   where
     drawLine r = map (drawTile r) [minC..maxC]
-    drawTile r c = showTile . fmap fst $ getTile grd (r,c)
+    drawTile r c = showTile $ getTile grd (r,c)
     showTile (Just Floor) = '.'
     showTile (Just Door)  = '+'
     showTile Nothing      = '#'
