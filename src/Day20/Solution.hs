@@ -7,6 +7,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Ord (comparing)
 import           Text.Parsec hiding (Empty)
+import Debug.Trace (trace)
 
 
 
@@ -97,7 +98,9 @@ generateGrid = go (0,0) 0 (Map.fromList [((0,0), (Floor, 0))])
           let grd' = foldl' (go coord nrDoors) grd cs
           in go coord nrDoors grd' more
         Empty -> grd
-    minDoors (newTile, newDoors) (_, oldDoors) = (newTile, min newDoors oldDoors)
+    minDoors (newTile, newDoors) (_, oldDoors) =
+      let updDoors = (if oldDoors /= newDoors then trace ("updating doors") else id) min newDoors oldDoors
+      in (newTile, updDoors)
 
 
 ----------------------------------------------------------------------

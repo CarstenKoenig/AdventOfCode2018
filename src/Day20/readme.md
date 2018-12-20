@@ -17,3 +17,7 @@ by annotating the rooms (I annotate the doors too - easier) with the numbers of 
 If you come to a room twice you just take the minimum of the steps already annotated and in your current path.
 
 In general **this is not correct** but for my input it worked out ;)
+
+---
+
+TODO: for my input only one room is visited twice - I should still correct the algorithm (don't write the steps, write the coord of the previous note for the best path and count afterwards)
