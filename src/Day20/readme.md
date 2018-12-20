@@ -13,13 +13,4 @@ path - to a room.
 Part2 asks you to count all rooms to which you have to take at least 1000 doors to get to.
 
 After parsing the input and writing a simple recursive function to exanpd the grid this was easily done
-by annotating the rooms (I annotate the doors too - easier) with the numbers of doors required to get there.
-If you come to a room twice you just take the minimum of the steps already annotated and in your current path.
-
-In general **this is not correct** but for my input it worked out ;)
-
----
-
-TODO: for my input only one room is visited twice
-
-obviously I should redo this with a valid algorithm - maybe after the holidays ;)
+using the usual *breadth-first* algorithm, moving out from `(0,0)` and counting the numbers on the way.

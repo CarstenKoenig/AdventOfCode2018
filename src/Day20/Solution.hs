@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Day20.Solution where
@@ -7,8 +6,11 @@ import           Data.List (foldl', maximumBy)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Ord (comparing)
+import           Data.Sequence (Seq((:<|)), (><))
+import qualified Data.Sequence as Seq
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Text.Parsec hiding (Empty)
-import Debug.Trace (trace)
 
 
 
@@ -22,7 +24,7 @@ data Tile
 
 type DoorsBetween = Int
 
-type Grid = Map Coord (Tile, DoorsBetween)
+type Grid a = Map Coord a
 
 
 data Direction = West | East | North | South
@@ -43,7 +45,7 @@ run :: IO ()
 run = do
   putStrLn "DAY 20"
   regEx <- inputTxt
-  let grd = generateGrid regEx
+  let grd = markDoors $ generateGrid regEx
 
   putStrLn $ "part 1: " ++ show (furthestRoom grd)
   putStrLn $ "part 2: " ++ show (part2 grd)
@@ -54,67 +56,46 @@ run = do
 
 -- | count all rooms with more than 1000 doors to there
 -- have to divide by two as I annotate doors too
-part2 :: Grid -> Int
+part2 :: Grid DoorsBetween -> Int
 part2 =
-  (`div` 2) . length . filter (\(_, (_,doors)) -> doors >= 1000) . Map.toList
+  (`div` 2) . length . filter (\(_, doors) -> doors >= 1000) . Map.toList
+
 
 -- | find the room with maximum 'DoorsBetween'
-furthestRoom :: Grid -> (Coord, DoorsBetween)
+furthestRoom :: Grid DoorsBetween -> DoorsBetween
 furthestRoom =
-  (\(crd, (_, doors)) -> (crd, doors)) . maximumBy (comparing (snd .snd)) . Map.toList
-
+  snd . maximumBy (comparing snd) . Map.toList
 
 ----------------------------------------------------------------------
 -- grid generation
 
 
-generateGrid' :: RegEx -> Grid
-generateGrid' = snd . hyloRegex fold (0, Map.fromList [((0,0), (Floor, 0))])
+-- | visites every room breadth-first and marks the doors in between
+markDoors :: Grid Tile -> Grid DoorsBetween
+markDoors tileGrid = go Set.empty (Seq.singleton ((0,0), 0)) (Map.singleton (0,0) 0)
   where
-    fold (coord, tile) (nrDoors, grd) =
-      let nrDoors' = if tile == Door then nrDoors + 1 else nrDoors
-      in (nrDoors', Map.insertWith minDoors coord (tile, nrDoors') grd)
-    minDoors (newTile, newDoors) (_, oldDoors) =
-      let updDoors = (if oldDoors /= newDoors then trace ("updating doors") else id) min newDoors oldDoors
-      in (newTile, updDoors)
+    go :: Set Coord -> Seq (Coord, DoorsBetween) -> Grid DoorsBetween -> Grid DoorsBetween
+    go _ Seq.Empty grd = grd
+    go visited ((nextCoord, doors) :<| restCoords) grd =
+      let visited' = Set.insert nextCoord visited
+          neighs   = map (updatedDoorCount doors) $ filter (not . (`Set.member` visited)) $ neighbors nextCoord
+          restCoords' = restCoords >< Seq.fromList neighs
+          grd'     = foldl' (\g (nc, dc) -> Map.insert nc dc g) grd neighs
+      in go visited' restCoords' grd'
+    neighbors :: Coord -> [Coord]
+    neighbors (row,col) =
+      filter (`Map.member` tileGrid) $ [ (row-1,col), (row, col-1), (row, col+1), (row+1,col) ]
+    updatedDoorCount :: DoorsBetween -> Coord -> (Coord, DoorsBetween)
+    updatedDoorCount curCount coord =
+      case getTile tileGrid coord of
+        Just Door -> (coord, curCount + 1)
+        _         -> (coord, curCount)
 
 
--- | generates the grid from the regex
-generateGrid :: RegEx -> Grid
-generateGrid = go (0,0) 0 (Map.fromList [((0,0), (Floor, 0))])
-  where
-    go :: Coord -> DoorsBetween -> Grid -> RegEx -> Grid
-    go coord@(row,col) nrDoors grd regEx =
-      case regEx of
-        Start more     -> go coord nrDoors grd more
-        Stop           -> grd
-        Dir North more ->
-          let coord'  = (row-1,col)
-              coord'' = (row-2,col)
-              grd'   = Map.insertWith minDoors coord' (Door, nrDoors+1) $ Map.insertWith minDoors coord'' (Floor, nrDoors+1) grd
-          in go coord'' (nrDoors+1)  grd' more
-        Dir South more ->
-          let coord'  = (row+1,col)
-              coord'' = (row+2,col)
-              grd'   = Map.insertWith minDoors coord' (Door, nrDoors+1) $ Map.insertWith minDoors coord'' (Floor, nrDoors+1) grd
-          in go coord'' (nrDoors+1) grd' more
-        Dir West more ->
-          let coord'  = (row,col-1)
-              coord'' = (row,col-2)
-              grd'   = Map.insertWith minDoors coord' (Door, nrDoors+1) $ Map.insertWith minDoors coord'' (Floor, nrDoors+1) grd
-          in go coord'' (nrDoors+1) grd' more
-        Dir East more ->
-          let coord'  = (row,col+1)
-              coord'' = (row,col+2)
-              grd'   = Map.insertWith minDoors coord' (Door, nrDoors+1) $ Map.insertWith minDoors coord'' (Floor, nrDoors+1) grd
-          in go coord'' (nrDoors+1) grd' more
-        Choice cs more ->
-          let grd' = foldl' (go coord nrDoors) grd cs
-          in go coord nrDoors grd' more
-        Empty -> grd
-    minDoors (newTile, newDoors) (_, oldDoors) =
-      let updDoors = (if oldDoors /= newDoors then trace ("updating doors") else id) min newDoors oldDoors
-      in (newTile, updDoors)
+-- | generates a grid representation from the RegEx
+generateGrid :: RegEx -> Grid Tile
+generateGrid = hyloRegex fold (Map.fromList [((0,0), Floor)])
+  where fold (coord, tile) = Map.insert coord tile
 
 
 -- | unfolds all coords using the regex and folds an result over those coords and the tile type
@@ -130,22 +111,22 @@ hyloRegex fold = go (0,0)
         Dir North more ->
           let coord'  = (row-1,col)
               coord'' = (row-2,col)
-              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+              state'  = fold (coord'', Floor) $ fold (coord', Door) $ state
           in go coord'' state' more
         Dir South more ->
           let coord'  = (row+1,col)
               coord'' = (row+2,col)
-              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+              state'  = fold (coord'', Floor) $ fold (coord', Door) $ state
           in go coord'' state' more
         Dir West more ->
           let coord'  = (row,col-1)
               coord'' = (row,col-2)
-              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+              state'  = fold (coord'', Floor) $ fold (coord', Door) $ state
           in go coord'' state' more
         Dir East more ->
           let coord'  = (row,col+1)
               coord'' = (row,col+2)
-              state'  = fold (coord', Door) $ fold (coord'', Floor) $ state
+              state'  = fold (coord'', Floor) $ fold (coord', Door) $ state
           in go coord'' state' more
         Choice cs more ->
           let state' = foldl' (go coord) state cs
@@ -167,12 +148,12 @@ example3 = "^WSSEESWWWNW(S|NENNEEEENN(ESSSSW(NWSW|SSEN)|WSWWN(E|WWS(E|SS))))$"
 ----------------------------------------------------------------------
 -- grid output
 
-drawGrid :: Grid -> IO ()
+drawGrid :: Grid (Tile, DoorsBetween) -> IO ()
 drawGrid grd =
   mapM_ (putStrLn . drawLine) [minR..maxR]
   where
     drawLine r = map (drawTile r) [minC..maxC]
-    drawTile r c = showTile $ getTile grd (r,c)
+    drawTile r c = showTile . fmap fst $ getTile grd (r,c)
     showTile (Just Floor) = '.'
     showTile (Just Door)  = '+'
     showTile Nothing      = '#'
@@ -182,11 +163,11 @@ drawGrid grd =
 ----------------------------------------------------------------------
 -- helper
 
-getTile :: Grid -> Coord -> Maybe Tile
-getTile grd crd = fst <$> Map.lookup crd grd
+getTile :: Grid a -> Coord -> Maybe a
+getTile grd crd = Map.lookup crd grd
 
 
-bounds :: Grid -> (Coord, Coord)
+bounds :: Grid a -> (Coord, Coord)
 bounds grd = ((minRow-1, minCol-1), (maxRow+1, maxCol+1))
   where
     minRow = minimum $ map fst coords
