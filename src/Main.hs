@@ -14,9 +14,10 @@ import qualified Day16.Solution as Day16
 import qualified Day17.Solution as Day17
 import qualified Day18.Solution as Day18
 import qualified Day19.Solution as Day19
+import qualified Day2.Solution as Day2
 import qualified Day20.Solution as Day20
 import qualified Day21.Solution as Day21
-import qualified Day2.Solution as Day2
+import qualified Day22.Solution as Day22
 import qualified Day3.Solution as Day3
 import qualified Day4.Solution as Day4
 import qualified Day5.Solution as Day5
@@ -55,6 +56,7 @@ days =
   , (19, cont Day19.run)
   , (20, cont Day20.run)
   , (21, cont Day21.run)
+  , (22, cont Day22.run)
   , (99, const runAll)
   ]
   where cont = (>>)
