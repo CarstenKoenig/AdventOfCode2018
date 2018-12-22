@@ -21,6 +21,7 @@ dependencies:
   - parsec 
   - pointedlist
   - psqueues
+  - search-algorithms
   - text
   - time
   - transformers

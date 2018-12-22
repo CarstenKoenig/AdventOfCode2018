@@ -6,11 +6,11 @@ module Day22.Solution
   ) where
 
 
-import           Data.Array (Array, (!), array)
-import qualified Utils.Astar as Astar
+import Algorithm.Search (aStar)
+import Data.Array (Array, (!), array)
 
 
--- | (X,Y
+-- |(X,Y
 type Coord = (Int, Int)
 
 data RegionType
@@ -32,7 +32,7 @@ input = makeInput 5913 (8,701)
 
 
 makeInput :: Depth -> Coord -> Input
-makeInput d tgt = Input d tgt $ buildRegionMap (d, tgt) (1100,1100)
+makeInput d tgt = Input d tgt $ buildRegionMap (d, tgt) (500, 800)
 
 
 riskLevel :: Input -> Int
@@ -92,7 +92,7 @@ run = do
   let inp = input
 
   putStrLn $ "part 1: " ++ show (riskLevel inp)
-  putStrLn $ "part 2: " ++ show (totalTime $ findPath inp)
+  putStrLn $ "part 2: " ++ show (fst <$> findPath inp)
 
 
 data State = State
@@ -105,17 +105,14 @@ data Tool = Neither | Torch | ClimbingGear
   deriving (Show, Ord, Eq)
 
 
-totalTime :: [State] -> Int
-totalTime path = sum $ zipWith time path (tail path)
-
-
 time :: State -> State -> Int
 time (State fromPos fromTool) (State toPos toTool) =
       (if fromPos == toPos then 0 else 1)  + (if fromTool == toTool then 0 else 7)
 
 
-findPath :: Input -> [State]
-findPath inp = Astar.aStar (astarParams inp) start
+findPath :: Input -> Maybe (Int, [State])
+-- findPath inp = Astar.aStar (astarParams inp) start
+findPath inp = aStar (neighbors inp) time (heuristic inp) (isGoal inp) start
 
 
 possibleTools :: RegionType -> [Tool]
@@ -135,7 +132,7 @@ adjacent (x,y) = [ c | c@(x',y') <- [(x,y+1), (x+1,y), (x-1,y), (x,y-1)], x' >= 
 neighbors :: Input -> State -> [State]
 neighbors inp (State curPos curTool) =
   [ State newPos newTool
-  | newPos <- adjacent curPos
+  | newPos <- adjacent curPos ++ [curPos]
   , let newRegion = regionType inp newPos
   , newTool <- [ t | t <- possibleTools newRegion, isPossibleTool curRegion t ]
   , (newPos, newTool) /= (curPos, curTool)
@@ -147,17 +144,11 @@ neighbors inp (State curPos curTool) =
 start :: State
 start = State (0,0) Torch
 
-astarParams :: Input -> Astar.Parameter State State
-astarParams inp = Astar.Parameter
-  (heuristic inp)
-  (neighbors inp)
-  (isGoal inp)
-  id
-  time
 
 heuristic :: Input -> State -> Int
 heuristic inp (State curPos _ ) = dist (inputTarget inp) curPos
   where dist (x,y) (x',y') = abs (x'-x) + abs (y'-y)
+
 
 isGoal :: Input -> State -> Bool
 isGoal inp (State p Torch ) = p == inputTarget inp
