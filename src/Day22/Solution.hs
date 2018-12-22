@@ -27,6 +27,18 @@ input :: Input
 input = Input 5913 (8,701)
 
 
+riskLevel :: Input -> Int
+riskLevel inp =
+  sum $ map riskLevelOf $ [(x,y) | x <- [0..toX], y <- [0..toY]]
+  where
+    riskLevelOf (x,y) =
+      case regionType inp (x,y) of
+        Rocky  -> 0
+        Wet    -> 1
+        Narrow -> 2
+    (toX,toY) = inputTarget inp
+
+
 caveMouthCoord :: Coord
 caveMouthCoord = (0,0)
 
@@ -39,9 +51,7 @@ regionType inp (x,y) =
     _ -> Narrow
 
 
-type GeologicalIndex = Int
 type ErosionLevel = Int
-
 
 erosionLevel :: Input -> Coord -> ErosionLevel
 erosionLevel inp = memoFix go
@@ -74,3 +84,7 @@ drawMap inp (width, height) =
 run :: IO ()
 run = do
   putStrLn "DAY 22"
+
+  let inp = input
+
+  putStrLn $ "part 1: " ++ show (riskLevel inp)
