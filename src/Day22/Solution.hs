@@ -67,7 +67,7 @@ example = makeInput 510 (10,10)
 
 
 makeInput :: Depth -> Coord -> Input
-makeInput d tgt = Input d tgt $ buildRegionMap (d, tgt) (500, 800)
+makeInput d tgt = Input d tgt $ buildRegionMap (d, tgt) (140, 710)
 
 
 ----------------------------------------------------------------------
