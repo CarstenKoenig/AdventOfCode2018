@@ -7,9 +7,8 @@ module Day22.Solution
   ) where
 
 
+import           Data.Array (Array, (!), array)
 import           Data.Hashable (Hashable)
-import           Data.Map.Lazy (Map)
-import qualified Data.Map.Lazy as Map
 import           GHC.Generics (Generic)
 import qualified Utils.Astar as Astar
 
@@ -31,7 +30,7 @@ type Depth = Int
 data Input = Input
   { inputDepth  :: Depth
   , inputTarget :: Coord
-  , regionMap   :: Map Coord RegionType
+  , regionMap   :: Array Coord RegionType
   }
 
 
@@ -56,14 +55,11 @@ riskLevel inp =
 
 
 regionType :: Input -> Coord -> RegionType
-regionType inp c =
-  case Map.lookup c (regionMap inp) of
-    Just res -> res
-    Nothing  -> error $ "not in map: " ++ show c
+regionType inp c = regionMap inp ! c
 
 
-buildRegionMap :: (Int, Coord) -> Coord -> Map Coord RegionType
-buildRegionMap (depth,tgt) (maxX, maxY) = Map.map calcRegionType erosionMap
+buildRegionMap :: (Int, Coord) -> Coord -> Array Coord RegionType
+buildRegionMap (depth,tgt) (maxX, maxY) = fmap calcRegionType erosionMap
   where
     calcRegionType :: Int -> RegionType
     calcRegionType erosionLvl =
@@ -71,13 +67,13 @@ buildRegionMap (depth,tgt) (maxX, maxY) = Map.map calcRegionType erosionMap
         0 -> Rocky
         1 -> Wet
         _ -> Narrow
-    erosionMap = Map.fromList [ (c, erosionLevel c) | x <- [0..maxX], y <- [0..maxY], let c = (x,y) ]
+    erosionMap = array ((0,0), (maxX,maxY)) [ (c, erosionLevel c) | x <- [0..maxX], y <- [0..maxY], let c = (x,y) ]
     erosionLevel  (x,y) = (geoIndex (x,y) + depth) `mod` 20183
     geoIndex (0,0)                    = 0
     geoIndex !c | c == tgt            = 0
     geoIndex (!x,0)                   = x * 16807
     geoIndex (0,!y)                   = y * 48271
-    geoIndex (!x,!y)                  = erosionMap Map.! (x-1,y) * erosionMap Map.! (x,y-1)
+    geoIndex (!x,!y)                  = erosionMap ! (x-1,y) * erosionMap ! (x,y-1)
 
 
 
@@ -151,7 +147,7 @@ adjacent (x,y) = [ c | c@(x',y') <- [(x,y+1), (x+1,y), (x-1,y), (x,y-1)], x' >= 
 neighbors :: Input -> State -> [State]
 neighbors inp (State curPos curTool) =
   [ State newPos newTool
-  | newPos <- adjacent curPos ++ [curPos] -- may stay in place too
+  | newPos <- adjacent curPos
   , let newRegion = regionType inp newPos
   , newTool <- [ t | t <- possibleTools newRegion, isPossibleTool curRegion t ]
   , (newPos, newTool) /= (curPos, curTool)

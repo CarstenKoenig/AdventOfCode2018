@@ -18,4 +18,6 @@ Compared to yesterday this one was quite fun.
 
 ---
 
-runtime is around 3.5s which is shameful but enough for me right now.
+update: switched to `Array` which reduced the time a bit
+
+runtime is around 3s which is shameful but enough for me right now.
