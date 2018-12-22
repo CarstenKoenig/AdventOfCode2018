@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 module Day22.Solution
   ( run
   , Input (..)
@@ -8,8 +7,6 @@ module Day22.Solution
 
 
 import           Data.Array (Array, (!), array)
-import           Data.Hashable (Hashable)
-import           GHC.Generics (Generic)
 import qualified Utils.Astar as Astar
 
 
@@ -20,10 +17,6 @@ data RegionType
   = Rocky
   | Narrow
   | Wet
-  deriving (Show, Eq, Ord, Enum, Bounded, Generic)
-
-instance Hashable RegionType
-
 
 type Depth = Int
 
@@ -38,7 +31,7 @@ input :: Input
 input = makeInput 5913 (8,701)
 
 
-makeInput :: Int -> Coord -> Input
+makeInput :: Depth -> Coord -> Input
 makeInput d tgt = Input d tgt $ buildRegionMap (d, tgt) (1100,1100)
 
 
@@ -105,16 +98,11 @@ run = do
 data State = State
   { pos    :: Coord
   , tool   :: Tool
-  } deriving (Show, Eq, Ord, Generic)
-
-
-instance Hashable State
+  } deriving (Show, Ord, Eq)
 
 
 data Tool = Neither | Torch | ClimbingGear
-  deriving (Show, Eq, Ord, Generic)
-
-instance Hashable Tool
+  deriving (Show, Ord, Eq)
 
 
 totalTime :: [State] -> Int
