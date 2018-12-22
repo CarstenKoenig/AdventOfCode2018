@@ -17,6 +17,7 @@ dependencies:
   - deque
   - hashable
   - mtl
+  - MemoTrie
   - parsec 
   - pointedlist
   - psqueues

@@ -1,34 +1,76 @@
 module Day22.Solution where
 
-import           Data.Char (isDigit)
-import           Text.Parsec
+
+import Data.Map.Lazy (Map)
+import qualified Data.Map.Lazy as Map
+import Data.MemoTrie (memoFix)
+
+-- | (X,Y
+type Coord = (Int, Int)
+
+data RegionType
+  = Rocky
+  | Narrow
+  | Wet
+  deriving (Show, Eq, Ord, Enum, Bounded)
+
+
+type Depth = Int
+
+data Input = Input
+  { inputDepth :: Depth
+  , inputTarget :: Coord
+  } deriving Show
+
+
+input :: Input
+input = Input 5913 (8,701)
+
+
+caveMouthCoord :: Coord
+caveMouthCoord = (0,0)
+
+
+regionType :: Input -> Coord -> RegionType
+regionType inp (x,y) =
+  case erosionLevel inp (x,y) `mod` 3 of
+    0 -> Rocky
+    1 -> Wet
+    _ -> Narrow
+
+
+type GeologicalIndex = Int
+type ErosionLevel = Int
+
+
+erosionLevel :: Input -> Coord -> ErosionLevel
+erosionLevel inp = memoFix go
+  where
+    go       cont (x,y) = (geoIndex cont (x,y) + inputDepth inp) `mod` 20183
+    geoIndex _    (0,0)                    = 0
+    geoIndex _    c | c == inputTarget inp = 0
+    geoIndex _    (x,0)                    = x * 16807
+    geoIndex _    (0,y)                    = y * 48271
+    geoIndex cont (x,y)                    = cont (x-1,y) * cont (x,y-1)
+
+
+
+example :: Input
+example = Input 510 (10,10)
+
+
+drawMap :: Input -> (Int, Int) -> IO ()
+drawMap inp (width, height) =
+  mapM_ drawLine [0..height]
+  where
+    drawLine y = putStrLn $ map (formatRegion y) [0..width]
+    formatRegion y x =
+      case regionType inp (x,y) of
+        Rocky  -> '.'
+        Wet    -> '='
+        Narrow -> '|'
 
 
 run :: IO ()
 run = do
   putStrLn "DAY 22"
-
-
-inputTxt :: IO String
-inputTxt = readFile "./src/Day22/input.txt"
-
-
-type Input = ()
-
-parseInput :: String -> Input
-parseInput = either (error . show) id . parse inputP "input.txt"
-
-
-type Parser a = Parsec String () a
-
-
-inputP :: Parser Input
-inputP = pure ()
-
-
-intP :: Parser Int
-intP = choice [ negate <$> (char '-' *> numP), numP ]
-
-
-numP :: Parser Int
-numP = read <$> many1 (satisfy isDigit)
