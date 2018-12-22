@@ -2,6 +2,7 @@
 module Day15.Solution
   (run
   , showGrid
+  , anim
   ) where
 
 import           Control.Concurrent (threadDelay)
@@ -220,8 +221,9 @@ move from grd =
 -- | finds the next move by using A* to find the optimal path (if it exists)
 -- and then returning the second step of that (the first one is the current coord)
 findMove :: Grid -> Coord -> Maybe Coord
-findMove grd from =
-  listToMaybe $ drop 1 $ AStar.aStar params from
+findMove grd from = do
+  path <- AStar.aStar params from
+  listToMaybe $ drop 1 path
   where params = astarConfig grd from
 
 

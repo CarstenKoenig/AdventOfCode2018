@@ -15,7 +15,7 @@ import           Data.Set (Set)
 import qualified Data.Set as S
 
 
-aStar :: (Ord eqNode, Ord node, Show node) => Parameter node eqNode -> node -> Path node
+aStar :: (Ord eqNode, Ord node, Show node) => Parameter node eqNode -> node -> Maybe (Path node)
 aStar params = astar' . initEnvironment params
 
 
@@ -33,12 +33,12 @@ type Path node = [node]
 type PSQ node = OrdPSQ node Score ()
 
 
-astar' :: (Ord eqNode, Ord node, Show node) => Environment node eqNode -> Path node
+astar' :: (Ord eqNode, Ord node, Show node) => Environment node eqNode -> Maybe (Path node)
 astar' env =
   case findPromissingNode env of
-    Nothing -> []
+    Nothing -> Nothing
     Just candidate
-      | isGoalNode env candidate -> reverse $ constructPath env candidate
+      | isGoalNode env candidate -> Just $ reverse $ constructPath env candidate
       | otherwise ->
         let open'   = PQ.delete candidate $ open env
             closed' = S.insert (getClass env candidate) $ closed env
@@ -55,33 +55,31 @@ data Environment node eqNode
         , open      :: PSQ node
         , cameFrom  :: Map node node
         , gScores   :: Map node Score
-        , fScores   :: Map node Score
         , parameter :: Parameter node eqNode
         }
 
 
 initEnvironment :: Ord node => Parameter node eqNode -> node -> Environment node eqNode
 initEnvironment p start =
-  Env S.empty startOpen M.empty startG startF p
+  Env S.empty startOpen M.empty startG p
   where
-    startOpen = PQ.singleton start 0 ()
+    startOpen = PQ.singleton start (heuristic p start) ()
     startG = M.insert start 0 M.empty
-    startF = M.insert start (heuristic p start) M.empty
 
 
 considerStep :: (Ord node, Ord eqNode, Show node) => node -> node -> Environment node eqNode -> Environment node eqNode
 considerStep current next env =
   let tentativeGScore = gScoreFor env current + score (parameter env) current next
-      nextFScore      = tentativeGScore + scoreHeuristic env next
-      open'           = PQ.insert next nextFScore () (open env)
       knownGScore     = gScoreFor env next
+      bestGScore      = min knownGScore tentativeGScore
+      nextFScore      = bestGScore + scoreHeuristic env next
+      open'           = PQ.insert next nextFScore () (open env)
   in
     if tentativeGScore >= knownGScore
     then env { open = open' }
     else env { open = open'
              , cameFrom = M.insert next current (cameFrom env)
              , gScores  = M.insert next tentativeGScore (gScores env)
-             , fScores  = M.insert next nextFScore (fScores env)
              }
 
 
@@ -127,8 +125,8 @@ example = Parameter
   (\_ _ -> 1)
 
 
-exampleResult :: [Int]
-exampleResult = [0,5,10,11,16,17,22,23,28,29,34,35,40,41,46,47,49,50]
+exampleResult :: Maybe [Int]
+exampleResult = Just [0,5,10,11,16,17,22,23,28,29,34,35,40,41,46,47,49,50]
 
 
 testExample :: IO ()
