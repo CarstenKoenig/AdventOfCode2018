@@ -19,6 +19,7 @@ import qualified Day20.Solution as Day20
 import qualified Day21.Solution as Day21
 import qualified Day22.Solution as Day22
 import qualified Day23.Solution as Day23
+import qualified Day24.Solution as Day24
 import qualified Day3.Solution as Day3
 import qualified Day4.Solution as Day4
 import qualified Day5.Solution as Day5
@@ -31,7 +32,7 @@ import           System.IO (hSetBuffering, BufferMode(..), stdout)
 import           Text.Read (readMaybe)
 
 maxDay :: Int
-maxDay = 19
+maxDay = 24
 
 days :: [(Int, IO () -> IO ())]
 days =
@@ -59,6 +60,7 @@ days =
   , (21, cont Day21.run)
   , (22, cont Day22.run)
   , (23, cont Day23.run)
+  , (24, cont Day24.run)
   , (99, const runAll)
   ]
   where cont = (>>)
