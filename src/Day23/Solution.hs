@@ -102,9 +102,9 @@ search bots = go startCubeRadius $ bounds bots
     -- candidates for coords are the vertices of all dividing sub-cubes
     candidates cubeLen bds =
       let ((minX, minY, minZ), (maxX, maxY, maxZ)) = bds
-      in [(x,y,z) | x <- [minX,minX+cubeLen..maxX]
-                  , y <- [minY,minY+cubeLen..maxY]
-                  , z <- [minZ,minZ+cubeLen..maxZ]
+      in [(x,y,z) | x <- [minX,minX+cubeLen..maxX-1]
+                  , y <- [minY,minY+cubeLen..maxY-1]
+                  , z <- [minZ,minZ+cubeLen..maxZ-1]
                   ]
 
     findNextPower n = head $ dropWhile (< n) $ iterate (*2) 1
