@@ -2,10 +2,11 @@ module Day23.Solution
   ( run
   ) where
 
-import           Data.Char (isDigit)
-import           Data.List (maximumBy, minimumBy)
-import           Data.Ord (comparing)
-import           Text.Parsec
+import Control.Arrow ((&&&))
+import Data.Char (isDigit)
+import Data.List (maximumBy, minimumBy)
+import Data.Ord (comparing)
+import Text.Parsec
 
 
 type Coord = (Int, Int, Int)
@@ -64,35 +65,46 @@ part2 bots =
   in dist (0,0,0) best
 
 
+-- | searches for the coord with the most bots in range
+--  looks for coords in grid which distance is halfed in each step
+--  chooses the best coord in such a grid by counting the bots in reach with any
+--  point in a cube-cell in that grid (see 'intersect' bellow)
 search :: [Nanobot] -> Coord
-search bots = go startDist $ bounds bots
+search bots = go startCubeRadius $ bounds bots
   where
     go 1 bds = bestCoord 1 $ candidates 1 bds
-    go d bds =
-      let (x,y,z) = bestCoord d $ candidates d bds
-      in go (d `div` 2) ((x-d, y-d, z-d), (x+d,y+d,z+d))
+    go cubeRadius bds =
+      if cubeRadius <= 1
+      then bestC
+      else go (cubeRadius `div` 2) ((x-cubeRadius, y-cubeRadius, z-cubeRadius), (x+cubeRadius,y+cubeRadius,z+cubeRadius))
+      where
+        bestC@(x,y,z) = bestCoord cubeRadius $ candidates cubeRadius bds
 
-    startDist =
-      let ((minX, _, _), (maxX, _, _)) = bounds bots
-      in findNextPower (maxX - minX)
 
-    bestCoord d crds =
+    -- find a power of 2 such that every bot is in the cube
+    startCubeRadius =
+      let ((minX, minY, minZ), (maxX, maxY, maxZ)) = bounds bots
+      in findNextPower $ maximum [maxX - minX, maxY - minY, maxZ - minZ]
+
+    -- find the coord in 'crds' where a cube around it with radius 'cubeRadius' intersects the most bots
+    bestCoord cubeRadius crds =
       let
-        coordAndCount = map (\c -> (botsInRange d c, c)) crds
+        coordAndCount = map (botsInRange cubeRadius &&& id) crds
         bestCount = maximum $ map fst coordAndCount
       in minimumBy (comparing $ dist (0,0,0)) $ map snd $ filter ((== bestCount) . fst) coordAndCount
 
-    botsInRange d c =
-      length $ filter (intersect d c) bots
+    botsInRange cubeRadius c =
+      length $ filter (intersect cubeRadius c) bots
 
-    intersect d c bot =
-      dist c (nanobotPos bot) < d + nanobotRadius bot
+    intersect cubeRadius c bot =
+      dist c (nanobotPos bot) < cubeRadius + nanobotRadius bot
 
-    candidates d bds =
+    -- candidates for coords are the vertices of all dividing sub-cubes
+    candidates cubeLen bds =
       let ((minX, minY, minZ), (maxX, maxY, maxZ)) = bds
-      in [(x,y,z) | x <- [minX,minX+d..maxX]
-                  , y <- [minY,minY+d..maxY]
-                  , z <- [minZ,minZ+d..maxZ]
+      in [(x,y,z) | x <- [minX,minX+cubeLen..maxX]
+                  , y <- [minY,minY+cubeLen..maxY]
+                  , z <- [minZ,minZ+cubeLen..maxZ]
                   ]
 
     findNextPower n = head $ dropWhile (< n) $ iterate (*2) 1
