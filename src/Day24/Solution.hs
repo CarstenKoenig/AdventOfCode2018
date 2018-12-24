@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections #-}
-module Day24.Solution where
+module Day24.Solution
+  ( run
+  ) where
 
 import           Control.Arrow ((&&&))
 import           Data.Char (isDigit)
@@ -14,36 +16,20 @@ import qualified Data.Set as Set
 import           Text.Parsec hiding (State)
 
 
-type HitPoints = Int
-type AttackDamage = Int
-type Units = Int
-type Initiative = Int
+----------------------------------------------------------------------
+-- main
 
-data AttackType = Fire | Cold | Slashing | Radiation | Bludgeoning
-  deriving (Show, Eq, Ord, Enum, Bounded)
+run :: IO ()
+run = do
+  putStrLn "DAY 24"
 
-type Army = [Group]
-
-data Group = Group
-  { groupUnits    :: Units
-  , unitHitpoints :: HitPoints
-  , attackDamage  :: Int
-  , attackType    :: AttackType
-  , weaknesses    :: [AttackType]
-  , immunites     :: [AttackType]
-  , initiative    :: Initiative
-  } deriving (Eq, Show)
+  inp <- inputTxt
+  putStrLn $ "part 1: " ++ show (part1 inp)
+  putStrLn $ "part 2: " ++ show (part2 inp)
 
 
-type GroupNr = Int
-
-data State = State
-  { groups        :: Map GroupNr Group
-  , immuneArmy    :: Set GroupNr
-  , infectionArmy :: Set GroupNr
-  } deriving (Eq, Show)
-
-
+-- | runs 'simulate' for the problems input
+-- and counts the units left
 part1 :: Input -> Int
 part1 inp =
   let state = initState inp
@@ -51,6 +37,9 @@ part1 inp =
   in unitsLeft end
 
 
+-- | incrementally boosts the immunesystem
+-- till 'simulate' results with no infection left
+-- and counts the remaining units in the first such case
 part2 :: Input -> Int
 part2 inp =
   let start = initState inp
@@ -59,18 +48,32 @@ part2 inp =
   in unitsLeft $ head $ won
 
 
-unitsLeft :: State -> Int
-unitsLeft = sum . map groupUnits . Map.elems . groups
+----------------------------------------------------------------------
+-- State managment
+
+-- | an army is a Set of Group-Numbers
+
+-- | state of a running simulation
+data State = State
+  { groups        :: Map GroupNr Group
+  , immuneArmy    :: Army
+  , infectionArmy :: Army
+  } deriving (Eq, Show)
+
+type GroupNr = Int
+type Army = Set GroupNr
 
 
-infectionLost :: State -> Bool
-infectionLost = Set.null . infectionArmy
+-- | initializes a starting 'State' from the problem 'Input'
+initState :: Input -> State
+initState (imms, infs) =
+  let immNrs = Set.fromList $ take (length imms) [1..]
+      infNrs = Set.fromList $ take (length infs) [length imms+1..]
+      grps   = Map.fromList $ zip [1..] (imms ++ infs)
+  in State grps immNrs infNrs
 
 
-immuneLost :: State -> Bool
-immuneLost = Set.null . immuneArmy
-
-
+-- | increases every immunesystem-groups attack-power by the given amount
 boost :: AttackDamage -> State -> State
 boost boostBy state = foldl' boostGroup state $ immuneArmy state
   where
@@ -80,20 +83,33 @@ boost boostBy state = foldl' boostGroup state $ immuneArmy state
       in st { groups = Map.insert grpNr newGr $ groups st }
 
 
-initState :: (Army, Army) -> State
-initState (imms, infs) =
-  let immNrs = Set.fromList $ take (length imms) [1..]
-      infNrs = Set.fromList $ take (length infs) [length imms+1..]
-      grps   = Map.fromList $ zip [1..] (imms ++ infs)
-  in State grps immNrs infNrs
+-- | counts how many units are left - including both armies
+unitsLeft :: State -> Int
+unitsLeft = sum . map groupUnits . Map.elems . groups
 
 
+-- | True if the infection-army has no groups left
+infectionLost :: State -> Bool
+infectionLost = Set.null . infectionArmy
+
+
+-- | returns a group by it's number
+getGroup :: State -> GroupNr -> Group
+getGroup state = (groups state Map.!)
+
+
+----------------------------------------------------------------------
+-- simulation
+
+-- | runs 'oneRound' till the state doesn't change any more
 simulate :: State -> State
 simulate state =
   let state' = oneRound state
   in if state == state' then state else simulate state'
 
 
+-- | one round:
+-- selection phase > attacking phase > remove dead groups
 oneRound :: State -> State
 oneRound state =
   let sels = selectionPhase state
@@ -101,19 +117,14 @@ oneRound state =
   in removeDead afterAtk
 
 
-removeDead :: State -> State
-removeDead state =
-  let groups' = Map.filter (\g -> groupUnits g > 0) $ groups state
-      immArmy = Set.filter (\nr -> nr `Map.member` groups') $ immuneArmy state
-      infArmy = Set.filter (\nr -> nr `Map.member` groups') $ infectionArmy state
-  in State groups' immArmy infArmy
-
-
+-- | runs 'attack' with a selection as returned by 'selectionPhase'
 attackPhase :: [(GroupNr, Maybe GroupNr)] -> State -> State
 attackPhase sels state =
   foldl' (flip attack) state sels
 
 
+-- | let a group fight if it did select a defender
+-- see problem description for details
 attack :: (GroupNr, Maybe GroupNr) -> State -> State
 attack (_, Nothing) state = state
 attack (attNr, Just defNr) state =
@@ -124,18 +135,26 @@ attack (attNr, Just defNr) state =
   in state { groups = Map.insert defNr (def { groupUnits = max 0 (groupUnits def - killed)}) (groups state) }
 
 
-getGroup :: State -> GroupNr -> Group
-getGroup state = (groups state Map.!)
+-- | removes all dead groups - from both the Map and the Sets
+removeDead :: State -> State
+removeDead state =
+  let groups' = Map.filter (\g -> groupUnits g > 0) $ groups state
+      immArmy = Set.filter (\nr -> nr `Map.member` groups') $ immuneArmy state
+      infArmy = Set.filter (\nr -> nr `Map.member` groups') $ infectionArmy state
+  in State groups' immArmy infArmy
 
 
+-- | selection phase - see problem description for details
+-- let's each group select it's defender (if any) and sorts by initiative
 selectionPhase :: State -> [(GroupNr, Maybe GroupNr)]
 selectionPhase state =
   let selections =
         targetSelection state (immuneArmy state) (infectionArmy state)
         ++ targetSelection state (infectionArmy state) (immuneArmy state)
-  in sortBy (comparing (negate . initiative . getGroup state . fst)) selections
+  in sortBy (comparing (Down . initiative . getGroup state . fst)) selections
 
 
+-- | target selection for an army agains another
 targetSelection :: State -> Set GroupNr -> Set GroupNr -> [(GroupNr, Maybe GroupNr)]
 targetSelection state attackers =
   go (sortBy (comparing (Down . order . snd)) $ map (id &&& getGroup state) $ Set.toList attackers)
@@ -150,6 +169,7 @@ targetSelection state attackers =
     order gr = (effectivePower gr, initiative gr)
 
 
+-- | calculates a selection for a attack group by the rules from the problem description
 highestDmgPotential :: State -> Group -> Set GroupNr -> (Maybe GroupNr, Set GroupNr)
 highestDmgPotential state att defNrs =
   let target = maximumBy (comparing (order . getGroup state)) $ Set.toList defNrs
@@ -160,7 +180,34 @@ highestDmgPotential state att defNrs =
   where
     order gr = (calcDamage att gr, effectivePower gr, initiative gr)
 
+----------------------------------------------------------------------
+-- group management
 
+
+data Group = Group
+  { groupUnits    :: Units
+  , unitHitpoints :: HitPoints
+  , attackDamage  :: Int
+  , attackType    :: AttackType
+  , weaknesses    :: [AttackType]
+  , immunites     :: [AttackType]
+  , initiative    :: Initiative
+  } deriving (Eq, Show)
+
+
+type HitPoints = Int
+
+type AttackDamage = Int
+
+type Units = Int
+
+type Initiative = Int
+
+data AttackType = Fire | Cold | Slashing | Radiation | Bludgeoning
+  deriving (Show, Eq, Ord, Enum, Bounded)
+
+
+-- | calculates the hitpoint-damage a attacking group would cause by a defending
 calcDamage :: Group -> Group -> HitPoints
 calcDamage att def =
   let factor = calcModifier (attackType att)
@@ -174,27 +221,23 @@ calcDamage att def =
       else 1
 
 
+-- | the effective power of a group
 effectivePower :: Group -> AttackDamage
 effectivePower gr = groupUnits gr * attackDamage gr
 
 
-run :: IO ()
-run = do
-  putStrLn "DAY 24"
+----------------------------------------------------------------------
+-- IO
 
-  inp <- inputTxt
-  putStrLn $ "part 1: " ++ show (part1 inp)
-  putStrLn $ "part 2: " ++ show (part2 inp)
-
-exampleTxt :: IO Input
-exampleTxt = parseInput <$> readFile "./src/Day24/example.txt"
+type Input = ([Group], [Group])
 
 
 inputTxt :: IO Input
 inputTxt = parseInput <$> readFile "./src/Day24/input.txt"
 
 
-type Input = (Army, Army)
+----------------------------------------------------------------------
+-- parsing
 
 parseInput :: String -> Input
 parseInput = either (error . show) id . parse inputP "input.txt"
@@ -211,7 +254,7 @@ inputP = do
   pure (imm, inf)
 
 
-armyP :: Parser (String, Army)
+armyP :: Parser (String, [Group])
 armyP = do
   name <- many1 (noneOf ":\n\r") <* char ':' <* newline
   army <- many (groupP <* newline)
@@ -252,11 +295,17 @@ weaknessesAndImmunitiesP = (between (char '(') (char ')') imuWksP <|> pure ([],[
         [(False, wks)]              -> pure (concat wks, [])
         [(True, ims)]               -> pure ([], concat ims)
         []                          -> pure ([], [])
+        _                           -> error "should never happen"
     imuOrWkP = choice [ wksP, imusP ]
+
     wksP = string "weak to " *> ((True, ) <$> (attackTypeP `sepBy1` string ", "))
+
     imusP = string "immune to " *> ((False, ) <$> (attackTypeP `sepBy1` string ", "))
+
     collect = map pullOut . groupBy ((==) `on` fst) . sortBy (comparing fst)
+
     pullOut xs@((a,_):_) = (a, map snd xs)
+    pullOut [] = error "empty list"
 
 
 attackTypeP :: Parser AttackType
@@ -269,10 +318,6 @@ attackTypeP = choice (map mkP types)
             , ("cold", Cold)
             ]
     mkP (s,t) = string s *> pure t
-
-intP :: Parser Int
-intP = choice [ negate <$> (char '-' *> numP), numP ]
-
 
 numP :: Parser Int
 numP = read <$> many1 (satisfy isDigit)

@@ -27,3 +27,4 @@ these are my solution to this years [Advent of Code](https://adventofcode.com/20
 - [Day 21](./src/Day21#readme.md)
 - [Day 22](./src/Day22#readme.md)
 - [Day 23](./src/Day23#readme.md)
+- [Day 24](./src/Day24#readme.md)
