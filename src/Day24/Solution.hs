@@ -48,7 +48,36 @@ part1 :: Input -> Int
 part1 inp =
   let state = initState inp
       end = simulate state
-  in sum . map groupUnits . Map.elems $ groups end
+  in unitsLeft end
+
+
+part2 :: Input -> Int
+part2 inp =
+  let start = initState inp
+      sims = map simulate [ boost by start | by <- [1..] ]
+      won = dropWhile (not . infectionLost) sims
+  in unitsLeft $ head $ won
+
+
+unitsLeft :: State -> Int
+unitsLeft = sum . map groupUnits . Map.elems . groups
+
+
+infectionLost :: State -> Bool
+infectionLost = Set.null . infectionArmy
+
+
+immuneLost :: State -> Bool
+immuneLost = Set.null . immuneArmy
+
+
+boost :: AttackDamage -> State -> State
+boost boostBy state = foldl' boostGroup state $ immuneArmy state
+  where
+    boostGroup st grpNr =
+      let gr = getGroup st grpNr
+          newGr = gr { attackDamage = attackDamage gr + boostBy }
+      in st { groups = Map.insert grpNr newGr $ groups st }
 
 
 initState :: (Army, Army) -> State
@@ -155,7 +184,7 @@ run = do
 
   inp <- inputTxt
   putStrLn $ "part 1: " ++ show (part1 inp)
-
+  putStrLn $ "part 2: " ++ show (part2 inp)
 
 exampleTxt :: IO Input
 exampleTxt = parseInput <$> readFile "./src/Day24/example.txt"
