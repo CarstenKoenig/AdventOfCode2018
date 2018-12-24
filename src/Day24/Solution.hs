@@ -7,7 +7,7 @@ module Day24.Solution
 import           Control.Arrow ((&&&))
 import           Data.Char (isDigit)
 import           Data.Function (on)
-import           Data.List (groupBy, sortBy, maximumBy, foldl')
+import           Data.List (groupBy, maximumBy, foldl', sortOn)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Ord (Down(..), comparing)
@@ -31,10 +31,7 @@ run = do
 -- | runs 'simulate' for the problems input
 -- and counts the units left
 part1 :: Input -> Int
-part1 inp =
-  let state = initState inp
-      end = simulate state
-  in unitsLeft end
+part1 = unitsLeft . simulate . initState
 
 
 -- | incrementally boosts the immunesystem
@@ -43,9 +40,9 @@ part1 inp =
 part2 :: Input -> Int
 part2 inp =
   let start = initState inp
-      sims = map simulate [ boost by start | by <- [1..] ]
-      won = dropWhile (not . infectionLost) sims
-  in unitsLeft $ head $ won
+      sims  = map simulate [ boost by start | by <- [1..] ]
+      won   = dropWhile (not . infectionLost) sims
+  in unitsLeft $ head won
 
 
 ----------------------------------------------------------------------
@@ -78,7 +75,7 @@ boost :: AttackDamage -> State -> State
 boost boostBy state = foldl' boostGroup state $ immuneArmy state
   where
     boostGroup st grpNr =
-      let gr = getGroup st grpNr
+      let gr    = getGroup st grpNr
           newGr = gr { attackDamage = attackDamage gr + boostBy }
       in st { groups = Map.insert grpNr newGr $ groups st }
 
@@ -112,7 +109,7 @@ simulate state =
 -- selection phase > attacking phase > remove dead groups
 oneRound :: State -> State
 oneRound state =
-  let sels = selectionPhase state
+  let sels     = selectionPhase state
       afterAtk = attackPhase sels state
   in removeDead afterAtk
 
@@ -128,9 +125,9 @@ attackPhase sels state =
 attack :: (GroupNr, Maybe GroupNr) -> State -> State
 attack (_, Nothing) state = state
 attack (attNr, Just defNr) state =
-  let att = getGroup state attNr
-      def = getGroup state defNr
-      dmg = calcDamage att def
+  let att    = getGroup state attNr
+      def    = getGroup state defNr
+      dmg    = calcDamage att def
       killed = dmg `div` unitHitpoints def
   in state { groups = Map.insert defNr (def { groupUnits = max 0 (groupUnits def - killed)}) (groups state) }
 
@@ -139,8 +136,8 @@ attack (attNr, Just defNr) state =
 removeDead :: State -> State
 removeDead state =
   let groups' = Map.filter (\g -> groupUnits g > 0) $ groups state
-      immArmy = Set.filter (\nr -> nr `Map.member` groups') $ immuneArmy state
-      infArmy = Set.filter (\nr -> nr `Map.member` groups') $ infectionArmy state
+      immArmy = Set.filter (`Map.member` groups') $ immuneArmy state
+      infArmy = Set.filter (`Map.member` groups') $ infectionArmy state
   in State groups' immArmy infArmy
 
 
@@ -151,22 +148,21 @@ selectionPhase state =
   let selections =
         targetSelection state (immuneArmy state) (infectionArmy state)
         ++ targetSelection state (infectionArmy state) (immuneArmy state)
-  in sortBy (comparing (Down . initiative . getGroup state . fst)) selections
+  in sortOn (Down . initiative . getGroup state . fst) selections
 
 
 -- | target selection for an army agains another
 targetSelection :: State -> Set GroupNr -> Set GroupNr -> [(GroupNr, Maybe GroupNr)]
 targetSelection state attackers =
-  go (sortBy (comparing (Down . order . snd)) $ map (id &&& getGroup state) $ Set.toList attackers)
+  go (sortOn (Down . order . snd) $ map (id &&& getGroup state) $ Set.toList attackers)
   where
-    go :: [(GroupNr, Group)] -> Set GroupNr -> [(GroupNr, Maybe GroupNr)]
     go [] _ = []
     go ((attNr, att):rest) defs
       | Set.null defs = []
       | otherwise =
         let (d,remDefs) = highestDmgPotential state att defs
         in (attNr, d) : go rest remDefs
-    order gr = (effectivePower gr, initiative gr)
+    order = effectivePower &&& initiative
 
 
 -- | calculates a selection for a attack group by the rules from the problem description
@@ -178,7 +174,7 @@ highestDmgPotential state att defNrs =
     then (Nothing, defNrs)
     else (Just target, Set.delete target defNrs)
   where
-    order gr = (calcDamage att gr, effectivePower gr, initiative gr)
+    order = calcDamage att &&& effectivePower &&& initiative
 
 ----------------------------------------------------------------------
 -- group management
@@ -187,7 +183,7 @@ highestDmgPotential state att defNrs =
 data Group = Group
   { groupUnits    :: Units
   , unitHitpoints :: HitPoints
-  , attackDamage  :: Int
+  , attackDamage  :: AttackDamage
   , attackType    :: AttackType
   , weaknesses    :: [AttackType]
   , immunites     :: [AttackType]
@@ -210,15 +206,12 @@ data AttackType = Fire | Cold | Slashing | Radiation | Bludgeoning
 -- | calculates the hitpoint-damage a attacking group would cause by a defending
 calcDamage :: Group -> Group -> HitPoints
 calcDamage att def =
-  let factor = calcModifier (attackType att)
-  in effectivePower att * factor
+  effectivePower att * calcModifier (attackType att)
   where
-    calcModifier attType =
-      if attType `elem` immunites def
-      then 0
-      else if attType `elem` weaknesses def
-      then 2
-      else 1
+    calcModifier attType
+      | attType `elem` immunites def  = 0
+      | attType `elem` weaknesses def = 2
+      | otherwise                     = 1
 
 
 -- | the effective power of a group
@@ -266,8 +259,7 @@ groupP = do
   (us, hp)       <- unitsP
   (im, wk)       <- weaknessesAndImmunitiesP
   (attPw, attTy) <- attackP
-  ini            <- initiativeP
-  return $ Group us hp attPw attTy wk im ini
+  Group us hp attPw attTy wk im <$> initiativeP
 
 
 unitsP :: Parser (Units, HitPoints)
@@ -289,7 +281,7 @@ weaknessesAndImmunitiesP = (between (char '(') (char ')') imuWksP <|> pure ([],[
   where
     imuWksP :: Parser ([AttackType], [AttackType])
     imuWksP = do
-      parts <- imuOrWkP `sepBy1` (string "; ")
+      parts <- imuOrWkP `sepBy1` string "; "
       case collect parts of
         [(False, wks), (True, ims)] -> pure (concat wks, concat ims)
         [(False, wks)]              -> pure (concat wks, [])
@@ -302,7 +294,7 @@ weaknessesAndImmunitiesP = (between (char '(') (char ')') imuWksP <|> pure ([],[
 
     imusP = string "immune to " *> ((False, ) <$> (attackTypeP `sepBy1` string ", "))
 
-    collect = map pullOut . groupBy ((==) `on` fst) . sortBy (comparing fst)
+    collect = map pullOut . groupBy ((==) `on` fst) . sortOn fst
 
     pullOut xs@((a,_):_) = (a, map snd xs)
     pullOut [] = error "empty list"
