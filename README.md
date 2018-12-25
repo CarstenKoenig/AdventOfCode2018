@@ -28,3 +28,14 @@ these are my solution to this years [Advent of Code](https://adventofcode.com/20
 - [Day 22](./src/Day22#readme.md)
 - [Day 23](./src/Day23#readme.md)
 - [Day 24](./src/Day24#readme.md)
+- [Day 25](./src/Day25#readme.md)
+
+all problems together run in under 15s
+
+Overall this was fun but not as great as the last few years. The problems where sometimes 
+a bit to tedious and long for my taste but I like that they are solvable even if people don't
+know much about algorithms - as always I learned quite a bit by doing them.
+
+Now I'm a bit sad that now there is no fun task waiting for me next morning :(
+
+Thank you @topaz and all who helped.
