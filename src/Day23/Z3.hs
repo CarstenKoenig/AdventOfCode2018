@@ -32,11 +32,8 @@ script bots = do
   yV <- sInteger "y"
   zV <- sInteger "z"
 
-  let botsInRange = sum $ map (isInRange (xV,yV,zV)) bots
-  let distFromOrigin = xV + yV + zV
-
-  maximize "bots in range" botsInRange
-  minimize "distance from origin" distFromOrigin
+  maximize "bots in range" $ sum $ map (isInRange (xV,yV,zV)) bots
+  minimize "distance from origin" $ mkAbs xV + mkAbs yV + mkAbs zV
 
   where
     -- 1 if xV,yV,zV is in range of the given bot - 0 otherwise
