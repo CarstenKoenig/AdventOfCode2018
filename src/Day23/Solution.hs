@@ -1,5 +1,8 @@
 module Day23.Solution
   ( run
+  , Coord, SendRadius, Nanobot (..), Input, Distance
+  , dist, bounds
+  , inputTxt
   ) where
 
 import Control.Arrow ((&&&))

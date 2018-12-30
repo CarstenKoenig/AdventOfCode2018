@@ -11,16 +11,17 @@ extra-source-files:
 
 dependencies:
   - base >= 4.7 && < 5
+  - MemoTrie
   - ansi-terminal
   - array
   - containers
   - deque
   - hashable
   - mtl
-  - MemoTrie
   - parsec 
   - pointedlist
   - psqueues
+  - sbv
   - search-algorithms
   - text
   - time
